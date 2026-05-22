@@ -1,10 +1,7 @@
 plugins {
-
     id("com.android.application")
-    // أضف السطر التالي الذي أرسلته زميلتك هنا:
-    id("com.google.gms.google-services") 
-    // ... قد يكون هناك أسطر أخرى هنا اتركها كما هي
-
+    id("org.jetbrains.kotlin.android") // هذا السطر غالباً موجود مسبقاً، اتركه كما هو
+    id("com.google.gms.google-services") // هذا هو سطر الفايربيس الذي أضفناه
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
