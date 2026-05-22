@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "289791216056",
+    "project_id": "darbbusticketbookingsystem",
+    "storage_bucket": "darbbusticketbookingsystem.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:289791216056:android:276bc332b661604ff8674d",
+        "android_client_info": {
+          "package_name": "com.example.darb"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnjzusjIDhnisVYWkPC5XrkLa__DBi8pM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:289791216056:android:5dc9e931988692b1f8674d",
+        "android_client_info": {
+          "package_name": "com.example.darb_test"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnjzusjIDhnisVYWkPC5XrkLa__DBi8pM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

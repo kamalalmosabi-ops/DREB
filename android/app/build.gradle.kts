@@ -1,4 +1,10 @@
 plugins {
+
+    id("com.android.application")
+    // أضف السطر التالي الذي أرسلته زميلتك هنا:
+    id("com.google.gms.google-services") 
+    // ... قد يكون هناك أسطر أخرى هنا اتركها كما هي
+
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -41,4 +47,11 @@ android {
 
 flutter {
     source = "../.."
+}
+dependencies {
+    // استيراد الحزمة الأساسية للفايربيس
+    implementation(platform("com.google.firebase:firebase-bom:34.13.0"))
+    
+    // استيراد مكتبة التحليلات 
+    implementation("com.google.firebase:firebase-analytics")
 }
