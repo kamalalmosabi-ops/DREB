@@ -1,8 +1,10 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android") // هذا السطر غالباً موجود مسبقاً، اتركه كما هو
-    id("com.google.gms.google-services") // هذا هو سطر الفايربيس الذي أضفناه
-    id("com.android.application")
+    id("kotlin-android")
+    id("dev.flutter.flutter-gradle-plugin")
+    
+    // سطر الفايربيس الخاص بنا
+    id("com.google.gms.google-services")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
