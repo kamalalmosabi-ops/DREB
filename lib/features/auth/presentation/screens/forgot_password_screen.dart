@@ -1,0 +1,84 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:darb/core/utils/validators.dart';
+import 'package:darb/features/auth/presentation/providers/auth_provider.dart';
+import 'package:darb/features/auth/presentation/screens/reset_password_screen.dart';
+
+class ForgotPasswordScreen extends StatefulWidget {
+  const ForgotPasswordScreen({super.key});
+
+  @override
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+}
+
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 30),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                Align(alignment: Alignment.topRight, child: _buildCircleBackButton(context)),
+                const SizedBox(height: 60),
+                const Text("نسيت كلمة المرور ؟", style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Color(0xFF0D1B3E))),
+                const SizedBox(height: 50),
+
+                _buildLabel("البريد الإلكتروني"),
+                _buildTextField(_emailController, "example@email.com", Validators.validateEmail),
+                const SizedBox(height: 40),
+
+                authProvider.isLoading
+                    ? const CircularProgressIndicator(color: Color(0xFFE79C24))
+                    : _buildMainButton("إرسال رمز التحقق", () async {
+                        if (_formKey.currentState!.validate()) {
+                          bool success = await authProvider.sendForgotPasswordOTP(_emailController.text.trim());
+                          if (success && mounted) {
+                            // نمرر الـ email فقط، والـ otp نجعله فارغاً في البداية
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ResetPasswordScreen(
+                                  email: _emailController.text.trim(),
+                                  otp: "", 
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      }),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(TextEditingController controller, String hint, String? Function(String?) validator) => TextFormField(
+      controller: controller,
+      textAlign: TextAlign.right,
+      validator: validator,
+      decoration: InputDecoration(hintText: hint, filled: true, fillColor: const Color(0xFFF9FAFB), border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)),
+    );
+
+  Widget _buildLabel(String text) => Align(alignment: Alignment.centerRight, child: Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold))));
+  Widget _buildMainButton(String text, VoidCallback onTap) => SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: onTap, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE79C24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))), child: Text(text, style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))));
+  Widget _buildCircleBackButton(BuildContext context) => GestureDetector(onTap: () => Navigator.pop(context), child: Container(padding: const EdgeInsets.all(10), decoration: const BoxDecoration(color: Color(0xFFE79C24), shape: BoxShape.circle), child: const Icon(Icons.arrow_forward, color: Colors.white, size: 22)));
+}
