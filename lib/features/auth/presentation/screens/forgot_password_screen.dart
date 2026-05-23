@@ -46,23 +46,26 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
                 authProvider.isLoading
                     ? const CircularProgressIndicator(color: Color(0xFFE79C24))
-                    : _buildMainButton("إرسال رمز التحقق", () async {
-                        if (_formKey.currentState!.validate()) {
-                          bool success = await authProvider.sendForgotPasswordOTP(_emailController.text.trim());
-                          if (success && mounted) {
-                            // نمرر الـ email فقط، والـ otp نجعله فارغاً في البداية
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ResetPasswordScreen(
-                                  email: _emailController.text.trim(),
-                                  otp: "", 
-                                ),
-                              ),
-                            );
-                          }
-                        }
-                      }),
+                    :_buildMainButton("إرسال رمز التحقق", () async {
+  if (_formKey.currentState!.validate()) {
+    bool success = await authProvider.sendForgotPasswordOTP(_emailController.text.trim());
+    
+    // السطر الذهبي هنا بعد الـ await
+    if (!context.mounted) return; 
+
+    if (success) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ResetPasswordScreen(
+            email: _emailController.text.trim(),
+            otp: "", 
+          ),
+        ),
+      );
+    }
+  }
+}),
               ],
             ),
           ),

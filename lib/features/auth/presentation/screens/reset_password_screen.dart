@@ -74,25 +74,30 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       width: double.infinity, height: 58,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE79C24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                        onPressed: () async {
-                          if (_formKey.currentState!.validate()) {
-                            bool success = await authProvider.resetPassword(
+                       onPressed: () async {
+                       if (_formKey.currentState!.validate()) {
+                       bool success = await authProvider.resetPassword(
                               widget.email, 
-                              _passwordController.text, 
-                              _otpController.text.trim()
+                          _passwordController.text, 
+                          _otpController.text.trim()
+                         );
+    
+                             // السطر الذهبي هنا بعد الـ await
+                      if (!context.mounted) return;
+
+                       if (success) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("تم تغيير كلمة المرور بنجاح!"))
+                          );
+       
+                             Navigator.pushAndRemoveUntil(
+                             context,
+                              MaterialPageRoute(builder: (context) => const LoginScreen()),
+                              (route) => false,
                             );
-                            if (success && mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم تغيير كلمة المرور بنجاح!")));
-                              
-                              // تعديل هنا: الانتقال المباشر لشاشة LoginScreen بدلاً من المسار النصي
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                                (route) => false,
-                              );
-                            }
-                          }
-                        },
+                        }
+                     }
+                 },
                         child: const Text("حفظ وتغيير", style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
                     ),

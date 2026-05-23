@@ -24,6 +24,7 @@ dependencies:
   shared_preferences: ^2.5.5
   firebase_core: ^4.9.0
   firebase_analytics: ^12.4.1
+  pinput: ^6.0.2
 
 dev_dependencies:
   flutter_test:

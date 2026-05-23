@@ -89,25 +89,29 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: double.infinity, 
                       height: 58, 
                       child: ElevatedButton(
-                        onPressed: () async {
-                          if (_formKey.currentState!.validate()) {
-                            bool success = await authProvider.login(
-                              _emailController.text.trim(), 
-                              _passwordController.text.trim()
-                            );
-                            
-                            if (success && mounted) {
-                              Navigator.pushReplacement(
-                                context, 
-                                MaterialPageRoute(builder: (context) => const HomeScreen())
-                              );
-                            } else if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("بيانات الدخول غير صحيحة"))
-                              );
-                            }
-                          }
-                        }, 
+                      onPressed: () async {
+  if (_formKey.currentState!.validate()) {
+    bool success = await authProvider.login(
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+    );
+
+    // السطر الذهبي المستقل: إذا أغلقت الشاشة، أوقف تنفيذ الدالة هنا!
+    if (!context.mounted) return;
+
+    // الآن نكتب الشروط براحة تامة وبدون الحاجة لكلمة mounted
+    if (success) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("بيانات الدخول غير صحيحة")),
+      );
+    }
+  }
+}, 
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFE79C24), 
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))

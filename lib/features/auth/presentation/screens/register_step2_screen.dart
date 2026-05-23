@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:darb/features/auth/presentation/providers/auth_provider.dart';
-import '../../../home_search/presentation/screens/home_screen.dart';
+import 'package:darb/features/auth/presentation/screens/otp_screen.dart';
 
 class RegisterStep2Screen extends StatefulWidget {
   final String email;
@@ -78,32 +78,51 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
                 _buildLabel("العنوان"),
                 _buildTextField(hint: "المدينة، الحي", controller: _addressController),
 
-                const SizedBox(height: 40),
-                authProvider.isLoading 
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFE79C24))) 
-                  : _buildMainButton("تسجيل الحساب", () async {
-                      if (_formKey.currentState!.validate()) {
-                        bool success = await authProvider.registerCustomer(
-                          name: _nameController.text.trim(),
-                          email: widget.email,
-                          password: widget.password,
-                          phone: _phoneController.text.trim(),
-                          nationalId: _nationalIdController.text.trim(),
-                          address: _addressController.text.trim(),
-                          dateOfBirth: _dobController.text.trim(),
-                        );
+              const SizedBox(height: 40),
+              authProvider.isLoading 
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFFE79C24))) 
+                : _buildMainButton("تسجيل الحساب", () async {
+                    if (_formKey.currentState!.validate()) {
+                      
+                      // 1. أمر الانتظار الأول (تسجيل الحساب)
+                      bool success = await authProvider.registerCustomer(
+                        name: _nameController.text.trim(),
+                        email: widget.email,
+                        password: widget.password,
+                        phone: _phoneController.text.trim(),
+                        nationalId: _nationalIdController.text.trim(),
+                        address: _addressController.text.trim(),
+                        dateOfBirth: _dobController.text.trim(),
+                      );
+                      
+                      // السطر الذهبي لإرضاء المحلل البرمجي وحماية التطبيق
+                      if (!context.mounted) return; 
+                      
+                      if (success) {
+                        // 2. أمر الانتظار الثاني (إرسال الرمز)
+                        bool otpSent = await authProvider.sendRegistrationOTP(widget.email);
                         
-                        if (success && mounted) {
-                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
-                        } else if (mounted) {
-                          // إظهار رسالة خطأ في حال فشل التسجيل
+                        // نكرر السطر الذهبي بعد كل await تستخدم الـ context بعدها
+                        if (!context.mounted) return; 
+                        
+                        if (otpSent) {
+                          Navigator.pushReplacement(
+                            context, 
+                            MaterialPageRoute(builder: (context) => OtpScreen(email: widget.email))
+                          );
+                        } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(authProvider.errorMessage ?? "حدث خطأ أثناء التسجيل")),
+                            SnackBar(content: Text(authProvider.errorMessage ?? "تم التسجيل، لكن فشل إرسال رمز التأكيد.")),
                           );
                         }
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(authProvider.errorMessage ?? "حدث خطأ أثناء التسجيل")),
+                        );
                       }
-                    }),
-                const SizedBox(height: 30),
+                    }
+                  }),
+              const SizedBox(height: 30),
               ],
             ),
           ),
