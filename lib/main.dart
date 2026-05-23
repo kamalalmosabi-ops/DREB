@@ -7,7 +7,14 @@ import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp();
+    // إذا وصل الكود لهذا السطر، فهذا يعني أن الربط تم بنجاح 100%
+    debugPrint("✅ تم الاتصال بسيرفرات الفايربيس بنجاح يا مهندس!");
+  } catch (e) {
+    // إذا فشل الربط لأي سبب، سيتم طباعة هذا الخطأ
+    debugPrint("❌ حدث خطأ أثناء الاتصال بالفايربيس: $e");
+  }
 
   runApp(
     MultiProvider(
