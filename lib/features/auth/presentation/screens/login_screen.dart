@@ -6,7 +6,6 @@ import 'register_step1_screen.dart';
 import 'forgot_password_screen.dart';
 import '../../../home_search/presentation/screens/main_screen.dart';
 
-
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -18,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _isObscure = true; // متغير للتحكم بظهور كلمة المرور
 
   @override
   void dispose() {
@@ -57,22 +57,50 @@ class _LoginScreenState extends State<LoginScreen> {
                 
                 const Text("البريد الإلكتروني", style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151))),
                 const SizedBox(height: 8),
+                
+                // حقل الإيميل (بدون أيقونة)
                 TextFormField(
                   controller: _emailController,
                   textAlign: TextAlign.right,
                   validator: Validators.validateEmail,
-                  decoration: _inputDecoration("example@email.com"),
+                  decoration: InputDecoration(
+                    hintText: "example@email.com",
+                    filled: true,
+                    fillColor: const Color(0xFFF9FAFB),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 15),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                  ),
                 ),
                 
                 const SizedBox(height: 25),
                 const Text("كلمة المرور", style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151))),
                 const SizedBox(height: 8),
+                
+                // حقل كلمة المرور (مع الأيقونة)
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true,
+                  obscureText: _isObscure, // نربط الإخفاء بالمتغير
                   textAlign: TextAlign.right,
                   validator: Validators.validatePassword,
-                  decoration: _inputDecoration("********"),
+                  decoration: InputDecoration(
+                    hintText: "********",
+                    filled: true,
+                    fillColor: const Color(0xFFF9FAFB),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 15),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                    // إضافة أيقونة العين هنا
+                    prefixIcon: IconButton(
+                      icon: Icon(
+                        _isObscure ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isObscure = !_isObscure; // عكس الحالة عند الضغط
+                        });
+                      },
+                    ),
+                  ),
                 ),
                 
                 Align(
@@ -90,30 +118,30 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: double.infinity, 
                       height: 58, 
                       child: ElevatedButton(
-                      onPressed: () async {
-  if (_formKey.currentState!.validate()) {
-    bool success = await authProvider.login(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-    );
+                        onPressed: () async {
+                          if (_formKey.currentState!.validate()) {
+                            bool success = await authProvider.login(
+                              _emailController.text.trim(),
+                              _passwordController.text.trim(),
+                            );
 
-    // السطر الذهبي المستقل: إذا أغلقت الشاشة، أوقف تنفيذ الدالة هنا!
-    if (!context.mounted) return;
+                            // السطر الذهبي المستقل: إذا أغلقت الشاشة، أوقف تنفيذ الدالة هنا!
+                            if (!context.mounted) return;
 
-    // الآن نكتب الشروط براحة تامة وبدون الحاجة لكلمة mounted
-    if (success) {
-     Navigator.pushAndRemoveUntil(
-  context,
-  MaterialPageRoute(builder: (_) => const MainScreen()), // توجه للحاوية التي تحمل النافبار
-  (route) => false, // مسح كل التاريخ السابق (عشان المستخدم ما يقدر يرجع لصفحة اللوجن)
-);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("بيانات الدخول غير صحيحة")),
-      );
-    }
-  }
-}, 
+                            // الآن نكتب الشروط براحة تامة وبدون الحاجة لكلمة mounted
+                            if (success) {
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => const MainScreen()), // توجه للحاوية التي تحمل النافبار
+                                (route) => false, // مسح كل التاريخ السابق (عشان المستخدم ما يقدر يرجع لصفحة اللوجن)
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("بيانات الدخول غير صحيحة")),
+                              );
+                            }
+                          }
+                        }, 
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFE79C24), 
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
@@ -148,13 +176,5 @@ class _LoginScreenState extends State<LoginScreen> {
       decoration: const BoxDecoration(color: Color(0xFFE79C24), shape: BoxShape.circle), 
       child: const Icon(Icons.arrow_forward, color: Colors.white, size: 20)
     )
-  );
-
-  InputDecoration _inputDecoration(String hint) => InputDecoration(
-    hintText: hint, 
-    filled: true, 
-    fillColor: const Color(0xFFF9FAFB), 
-    contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 15), 
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)
   );
 }

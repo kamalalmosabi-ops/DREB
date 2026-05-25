@@ -84,40 +84,32 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
                 : _buildMainButton("تسجيل الحساب", () async {
                     if (_formKey.currentState!.validate()) {
                       
-                      // 1. أمر الانتظار الأول (تسجيل الحساب)
-                      bool success = await authProvider.registerCustomer(
-                        name: _nameController.text.trim(),
-                        email: widget.email,
-                        password: widget.password,
-                        phone: _phoneController.text.trim(),
-                        nationalId: _nationalIdController.text.trim(),
-                        address: _addressController.text.trim(),
-                        dateOfBirth: _dobController.text.trim(),
-                      );
+                      // 1. نستدعي دالة إرسال الرمز أولاً (قبل حفظ البيانات)
+                      bool otpSent = await authProvider.sendRegistrationOTP(widget.email);
                       
-                      // السطر الذهبي لإرضاء المحلل البرمجي وحماية التطبيق
+                      // السطر الذهبي لإرضاء المحلل البرمجي
                       if (!context.mounted) return; 
                       
-                      if (success) {
-                        // 2. أمر الانتظار الثاني (إرسال الرمز)
-                        bool otpSent = await authProvider.sendRegistrationOTP(widget.email);
-                        
-                        // نكرر السطر الذهبي بعد كل await تستخدم الـ context بعدها
-                        if (!context.mounted) return; 
-                        
-                        if (otpSent) {
-                          Navigator.pushReplacement(
-                            context, 
-                            MaterialPageRoute(builder: (context) => OtpScreen(email: widget.email))
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(authProvider.errorMessage ?? "تم التسجيل، لكن فشل إرسال رمز التأكيد.")),
-                          );
-                        }
+                      if (otpSent) {
+                        // 2. إذا تم إرسال الرمز بنجاح، ننتقل لشاشة التأكيد 
+                        // ونأخذ معنا كل البيانات لكي تسجلها شاشة الـ OTP لاحقاً
+                        Navigator.pushReplacement(
+                          context, 
+                          MaterialPageRoute(
+                            builder: (context) => OtpScreen(
+                              email: widget.email,
+                              password: widget.password,
+                              fullName: _nameController.text.trim(),
+                              phone: _phoneController.text.trim(),
+                              nationalId: _nationalIdController.text.trim(),
+                              address: _addressController.text.trim(),
+                              dateOfBirth: _dobController.text.trim(),
+                            ),
+                          ),
+                        );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(authProvider.errorMessage ?? "حدث خطأ أثناء التسجيل")),
+                          SnackBar(content: Text(authProvider.errorMessage ?? "فشل إرسال رمز التأكيد، قد يكون الإيميل مسجلاً مسبقاً.")),
                         );
                       }
                     }

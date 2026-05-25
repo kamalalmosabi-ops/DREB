@@ -13,6 +13,10 @@ class _RegisterStep1ScreenState extends State<RegisterStep1Screen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+  
+  // المتغيرات للتحكم بحالة إظهار كلمة المرور
+  bool _isObscurePassword = true;
+  bool _isObscureConfirm = true;
 
   @override
   Widget build(BuildContext context) {
@@ -36,10 +40,32 @@ class _RegisterStep1ScreenState extends State<RegisterStep1Screen> {
                 
                 _buildLabel("البريد الإلكتروني"),
                 _buildTextField(hint: "example@gmail.com", controller: _emailController, isEmail: true),
+                
                 _buildLabel("كلمة المرور"),
-                _buildTextField(hint: "********", controller: _passwordController, isPassword: true),
+                _buildTextField(
+                  hint: "********", 
+                  controller: _passwordController, 
+                  isPassword: true,
+                  isObscure: _isObscurePassword, // تمرير الحالة الحالية
+                  onToggleVisibility: () {
+                    setState(() {
+                      _isObscurePassword = !_isObscurePassword; // عكس الحالة عند الضغط
+                    });
+                  }
+                ),
+                
                 _buildLabel("تأكيد كلمة المرور"),
-                _buildTextField(hint: "********", controller: _confirmController, isPassword: true),
+                _buildTextField(
+                  hint: "********", 
+                  controller: _confirmController, 
+                  isPassword: true,
+                  isObscure: _isObscureConfirm, // تمرير الحالة الحالية
+                  onToggleVisibility: () {
+                    setState(() {
+                      _isObscureConfirm = !_isObscureConfirm; // عكس الحالة عند الضغط
+                    });
+                  }
+                ),
                 
                 const SizedBox(height: 40),
                 _buildMainButton("التالي", () {
@@ -65,10 +91,35 @@ class _RegisterStep1ScreenState extends State<RegisterStep1Screen> {
   // المكونات المساعدة
   Widget _buildLabel(String text) => Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF374151))));
   
-  Widget _buildTextField({required String hint, required TextEditingController controller, bool isPassword = false, bool isEmail = false}) => TextFormField(
-    controller: controller, obscureText: isPassword, textAlign: TextAlign.right,
+  // دالة المساعدة المحدثة لدعم أيقونة العين
+  Widget _buildTextField({
+    required String hint, 
+    required TextEditingController controller, 
+    bool isPassword = false, 
+    bool isEmail = false,
+    bool? isObscure, // لتحديد هل النص مخفي أم لا
+    VoidCallback? onToggleVisibility, // دالة تنفذ عند الضغط على العين
+  }) => TextFormField(
+    controller: controller, 
+    obscureText: isObscure ?? isPassword, // استخدام isObscure إذا تم تمريره، وإلا استخدام isPassword
+    textAlign: TextAlign.right,
     validator: (v) => v == null || v.isEmpty ? "هذا الحقل مطلوب" : null,
-    decoration: InputDecoration(hintText: hint, filled: true, fillColor: const Color(0xFFF9FAFB), border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)),
+    decoration: InputDecoration(
+      hintText: hint, 
+      filled: true, 
+      fillColor: const Color(0xFFF9FAFB), 
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+      // إضافة أيقونة العين فقط إذا كان الحقل من نوع كلمة مرور
+      prefixIcon: isPassword 
+          ? IconButton(
+              icon: Icon(
+                (isObscure ?? true) ? Icons.visibility_off : Icons.visibility,
+                color: Colors.grey,
+              ),
+              onPressed: onToggleVisibility,
+            )
+          : null,
+    ),
   );
 
   Widget _buildSteps(int step) => Row(mainAxisAlignment: MainAxisAlignment.center, children: [
