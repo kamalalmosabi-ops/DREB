@@ -48,6 +48,10 @@ class AuthProvider with ChangeNotifier {
   }) async {
     _setLoading(true);
     _clearError();
+    
+    // 1. جهاز التنصت الأول: فحص البيانات قبل إرسالها (لنتأكد من صحة التمرير)
+    debugPrint("🚀 [إرسال البيانات] الايميل: $email | الجوال: $phone | الهوية: $nationalId");
+
     try {
       final response = await _dioClient.post(
         '/Auth/register/customers',
@@ -62,9 +66,10 @@ class AuthProvider with ChangeNotifier {
         },
       );
       
-      // بعد التسجيل الناجح، غالباً السيرفر يعيد بيانات المستخدم مع التوكن
+      // 2. جهاز التنصت الثاني: فحص رد السيرفر إذا كان ناجحاً
+      debugPrint("✅ [رد السيرفر] الكود: ${response.statusCode} | البيانات: ${response.data}");
+
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // إذا كان السيرفر يعيد بيانات المستخدم في الـ body بعد التسجيل:
         if (response.data['data'] != null) {
             _handleSuccessfulAuth(response.data['data']);
         } else {
@@ -75,6 +80,8 @@ class AuthProvider with ChangeNotifier {
       _setLoading(false);
       return false;
     } catch (e) {
+      // 3. جهاز التنصت الثالث: فحص دقيق للخطأ في حال رفض السيرفر
+      debugPrint("❌ [خطأ في السيرفر] التفاصيل: $e");
       _setExceptionError(e);
       return false;
     }

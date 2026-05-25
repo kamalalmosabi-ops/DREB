@@ -2,13 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
 import 'package:darb/features/auth/presentation/providers/auth_provider.dart';
-// لا تنسَ استيراد شاشة تسجيل الدخول أو الشاشة الرئيسية التي سينتقل لها بعد التأكيد
-import 'package:darb/features/auth/presentation/screens/login_screen.dart'; 
+import 'package:darb/features/auth/presentation/screens/login_screen.dart';
 
 class OtpScreen extends StatefulWidget {
-  final String email; // نستقبل الإيميل بدلاً من verificationId
+  // استقبال جميع المتغيرات لتسجيلها لاحقاً
+  final String email;
+  final String password;
+  final String fullName;
+  final String phone;
+  final String nationalId;
+  final String address;
+  final String dateOfBirth;
 
-  const OtpScreen({super.key, required this.email});
+  const OtpScreen({
+    super.key, 
+    required this.email,
+    required this.password,
+    required this.fullName,
+    required this.phone,
+    required this.nationalId,
+    required this.address,
+    required this.dateOfBirth,
+  });
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -25,7 +40,6 @@ class _OtpScreenState extends State<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // استدعاء المزود (Provider)
     final authProvider = Provider.of<AuthProvider>(context);
 
     final defaultPinTheme = PinTheme(
@@ -108,37 +122,55 @@ class _OtpScreenState extends State<OtpScreen> {
                     height: 58,
                     child: ElevatedButton(
                     onPressed: () async {
-  String otpCode = pinController.text.trim();
-  if (otpCode.length == 6) {
-    bool success = await authProvider.verifyRegistrationOTP(
-      widget.email, 
-      otpCode,
-    );
-    
-    // السطر الذهبي المستقل
-    if (!context.mounted) return;
-    
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("تم تأكيد الحساب بنجاح!"))
-      );
-      
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (route) => false,
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(authProvider.errorMessage ?? "الرمز غير صحيح، يرجى المحاولة مرة أخرى."))
-      );
-    }
-  } else {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("يرجى إدخال الرمز المكون من 6 أرقام بالكامل"))
-    );
-  }
-},
+                      String otpCode = pinController.text.trim();
+                      if (otpCode.length == 6) {
+                        
+                        // 1. نتأكد من صحة الرمز أولاً
+                        bool isOtpValid = await authProvider.verifyRegistrationOTP(widget.email, otpCode);
+                        
+                        // السطر الذهبي المستقل
+                        if (!context.mounted) return;
+                        
+                        if (isOtpValid) {
+                          // 2. إذا كان الرمز صحيحاً، نقوم الآن بتسجيل الحساب في السيرفر
+                          bool isRegistered = await authProvider.registerCustomer(
+                            name: widget.fullName,
+                            email: widget.email,
+                            password: widget.password,
+                            phone: widget.phone,
+                            nationalId: widget.nationalId,
+                            address: widget.address,
+                            dateOfBirth: widget.dateOfBirth,
+                          );
+
+                          if (!context.mounted) return;
+
+                          if (isRegistered) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("تم تأكيد وتسجيل الحساب بنجاح!"))
+                            );
+                            
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(builder: (context) => const LoginScreen()),
+                              (route) => false,
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(authProvider.errorMessage ?? "حدث خطأ أثناء حفظ البيانات."))
+                            );
+                          }
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(authProvider.errorMessage ?? "الرمز غير صحيح، يرجى المحاولة مرة أخرى."))
+                          );
+                        }
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("يرجى إدخال الرمز المكون من 6 أرقام بالكامل"))
+                        );
+                      }
+                    },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFE79C24),
                         shape: RoundedRectangleBorder(
