@@ -4,7 +4,8 @@ import 'package:darb/core/utils/validators.dart';
 import '../providers/auth_provider.dart';
 import 'register_step1_screen.dart'; 
 import 'forgot_password_screen.dart';
-import '../../../home_search/presentation/screens/home_screen.dart';
+import '../../../home_search/presentation/screens/main_screen.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -101,10 +102,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // الآن نكتب الشروط براحة تامة وبدون الحاجة لكلمة mounted
     if (success) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
+     Navigator.pushAndRemoveUntil(
+  context,
+  MaterialPageRoute(builder: (_) => const MainScreen()), // توجه للحاوية التي تحمل النافبار
+  (route) => false, // مسح كل التاريخ السابق (عشان المستخدم ما يقدر يرجع لصفحة اللوجن)
+);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("بيانات الدخول غير صحيحة")),

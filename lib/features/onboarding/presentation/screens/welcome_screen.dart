@@ -1,7 +1,7 @@
+import 'package:darb/features/home_search/presentation/screens/main_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:darb/features/auth/presentation/screens/login_screen.dart';
 import 'package:darb/features/auth/presentation/screens/register_step1_screen.dart';
-import 'package:darb/features/home_search/presentation/screens/home_screen.dart';
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
@@ -56,7 +56,7 @@ class WelcomeScreen extends StatelessWidget {
 
               // تصفح كزائر
               TextButton(
-                onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen())),
+                onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainScreen())),
                 child: const Text("تصفح كزائر", style: TextStyle(color: Colors.grey, decoration: TextDecoration.underline)),
               ),
             ],
