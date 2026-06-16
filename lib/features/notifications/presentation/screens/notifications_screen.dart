@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:darb/features/notifications/data/models/notification_model.dart';
 import 'package:darb/features/notifications/presentation/providers/notification_provider.dart';
-
-// استيراد الترجمة ومدير الإعدادات
 import 'package:darb/core/localization/app_localizations.dart';
 import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final String userType;
-  const NotificationsScreen({super.key, required this.userType});
+  final String token; 
+
+  const NotificationsScreen({
+    super.key, 
+    required this.userType, 
+    required this.token,
+  });
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -22,7 +26,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<NotificationProvider>().fetchNotifications(widget.userType);
+      context.read<NotificationProvider>().fetchNotifications(widget.token);
     });
   }
 
@@ -46,7 +50,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         backgroundColor: bgColor,
         body: Column(
           children: [
-            _buildPremiumHeader(context, loc),
+            _buildPremiumHeader(context, loc, notificationProvider),
             _buildFilterTabs(isDark, textColor, loc),
             Expanded(
               child: notificationProvider.isLoading
@@ -61,7 +65,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildPremiumHeader(BuildContext context, AppLocalizations loc) {
+  Widget _buildPremiumHeader(BuildContext context, AppLocalizations loc, NotificationProvider provider) {
     double topPadding = MediaQuery.of(context).padding.top;
     return Container(
       padding: EdgeInsets.only(top: topPadding + 20, left: 20, right: 20, bottom: 30),
@@ -76,7 +80,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           Text(loc.translate('notifications_center'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
           IconButton(
             icon: const Icon(Icons.done_all_rounded, color: Colors.white),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.translate('mark_all_read')))),
+            onPressed: () async {
+              await provider.markAllNotificationsAsRead(widget.token);
+              // ✅ تعديل هنا لحل تحذير use_build_context_synchronously بشكل نهائي يتوافق مع التحديثات
+              if (!context.mounted) return; 
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.translate('mark_all_read'))));
+            },
           ),
         ],
       ),
@@ -117,7 +126,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
       itemCount: list.length,
-      itemBuilder: (context, index) => _buildEnhancedPremiumCard(list[index], textColor, cardColor, loc, isAr),
+      itemBuilder: (context, index) {
+        final noti = list[index];
+        return GestureDetector(
+          onTap: () {
+            if (!noti.isRead) {
+              context.read<NotificationProvider>().markAsRead(noti.id, widget.token);
+            }
+          },
+          child: _buildEnhancedPremiumCard(noti, textColor, cardColor, loc, isAr),
+        );
+      },
     );
   }
 
@@ -144,7 +163,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     Text(_formatTimestampShort(noti.createdAt, loc), style: TextStyle(color: Colors.grey[400], fontSize: 11)),
                     if (!noti.isRead) ...[
                       const SizedBox(width: 8),
-                      const CircleAvatar(radius: 3, backgroundColor: Color(0xFFE79C24)),
+                      const CircleAvatar(radius: 4, backgroundColor: Color(0xFFE79C24)),
                     ]
                   ],
                 ),
@@ -160,9 +179,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   child: Column(
                     crossAxisAlignment: isAr ? CrossAxisAlignment.start : CrossAxisAlignment.end,
                     children: [
-                      Text(noti.title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor)),
+                      Text(noti.title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: noti.isRead ? textColor.withValues(alpha: 0.6) : textColor)),
                       const SizedBox(height: 5),
-                      Text(noti.body, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: 13, height: 1.5)),
+                      Text(noti.body, style: TextStyle(color: noti.isRead ? textColor.withValues(alpha: 0.4) : textColor.withValues(alpha: 0.7), fontSize: 13, height: 1.5)),
                     ],
                   ),
                 ),
@@ -176,8 +195,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Widget _buildIconBox(int category, Color color) {
     IconData iconData = Icons.notifications_none_rounded;
-    if (category == 1) iconData = Icons.directions_bus_filled_rounded; 
-    else if (category == 3) iconData = Icons.account_balance_wallet_rounded;
+    if (category == 1) {
+      iconData = Icons.directions_bus_filled_rounded;
+    } else if (category == 3) {
+      iconData = Icons.account_balance_wallet_rounded;
+    }
     
     return Container(
       width: 45, height: 45,

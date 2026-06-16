@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // ✅ للوصول لاسم المستخدم
+import 'package:shared_preferences/shared_preferences.dart'; //  للوصول لاسم المستخدم والتوكن
 
 import 'search_results.dart';
 import 'package:darb/features/notifications/presentation/screens/notifications_screen.dart';  
@@ -9,7 +9,7 @@ import 'companies_screen.dart';
 import 'all_trips_screen.dart'; 
 import 'package:darb/features/home_search/presentation/providers/home_provider.dart';  
 
-// ✅ استدعاء الخدمات لجلب الرحلات وصور الشركات
+//  استدعاء الخدمات لجلب الرحلات وصور الشركات
 import 'package:darb/features/bookings/data/models/booking_service.dart';
 import 'package:darb/core/network/dio_client.dart'; 
 
@@ -24,8 +24,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // ✅ متغيرات جديدة للبيانات الديناميكية
+  //  متغيرات البيانات الديناميكية
   String userName = "يا صديقي";
+  String userToken = ""; //  متغير لحفظ التوكن وتمريره لشاشات التطبيق 
   Map<String, dynamic>? upcomingTrip;
   List<dynamic> companyAvatars = [];
   bool isExtraLoading = true;
@@ -35,27 +36,30 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<HomeProvider>(context, listen: false).fetchHomeData();
-      _loadExtraDynamicData(); // ✅ جلب البيانات الجديدة
+      _loadExtraDynamicData(); // ✅ جلب البيانات الديناميكية
     });
   }
 
-  // ✅ دالة لجلب (اسم المستخدم + الرحلة القادمة + صور الشركات)
+  //  دالة لجلب (اسم المستخدم + التوكن + الرحلة القادمة + صور الشركات)
   Future<void> _loadExtraDynamicData() async {
     try {
-      // 1. جلب اسم المستخدم
+      // 1. جلب اسم المستخدم والتوكن من الشيرد بريفرنسز
       final prefs = await SharedPreferences.getInstance();
       String? savedName = prefs.getString('userName') ?? prefs.getString('fullName') ?? prefs.getString('name');
       String? email = prefs.getString('email');
       
+      // جلب التوكن المخزن في كاش التطبيق لكي نمرره لشاشة الإشعارات
+      userToken = prefs.getString('token') ?? prefs.getString('accessToken') ?? '';
+      
       if (savedName == null && email != null) {
-        savedName = email.split('@').first; // لو مفيش اسم، نأخذ الجزء الأول من الإيميل
+        savedName = email.split('@').first;
       }
       
       if (savedName != null && savedName.isNotEmpty) {
         userName = savedName;
       }
 
-      // 2. جلب الرحلة القادمة (حالة 1: قيد الانتظار أو حالة 2: مؤكد)
+      // 2. جلب الرحلة القادمة
       final bookingService = BookingService();
       var trips = await bookingService.getBookingsByStatus(1);
       if (trips.isEmpty) {
@@ -110,19 +114,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final loc = AppLocalizations.of(context)!;
     
     final isDark = settings.isDark;
-    final isAr = settings.locale.languageCode == 'ar';
+    const isAr = true; 
     
     final bgColor = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF8F9FD);
     final textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
 
     return Directionality(
-      textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+      textDirection: TextDirection.rtl, // ✅ الواجهة كاملة من اليمين لليسار (RTL)
       child: Scaffold(
         backgroundColor: bgColor,
         body: Consumer<HomeProvider>(
           builder: (context, homeProvider, child) {
             final governorates = homeProvider.searchData?.governorates ?? [];
-            final companiesList = homeProvider.searchData?.companies ?? []; // لغرض البحث (Dropdown)
+            final companiesList = homeProvider.searchData?.companies ?? []; 
             final times = homeProvider.searchData?.periods ?? [];
 
             return Stack(
@@ -138,14 +142,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const MyBookingsScreen()));
                       }),
                       
-                      _buildEnhancedTripCard(isDark, loc, isAr), // ✅ الرحلة الحقيقية
+                      _buildEnhancedTripCard(isDark, loc, isAr), 
                       const SizedBox(height: 25),
                       
                       _buildSectionTitle(loc.translate('transport_companies'), textColor, loc, () {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const CompaniesScreen()));
                       }),
                       
-                      _buildCompaniesList(isDark), // ✅ قائمة بصور الشركات الحقيقية
+                      _buildCompaniesList(isDark), 
                       const SizedBox(height: 30),
                     ],
                   ),
@@ -197,6 +201,23 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          Row(
+            children: [
+              const CircleAvatar(
+                radius: 22,
+                backgroundColor: Color(0xFF0D1B3E),
+                child: Icon(Icons.person, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("أهلاً بك، $userName 👋", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                  Text(loc.translate('where_to_go_today'), style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                ],
+              ),
+            ],
+          ),
           Container(
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.2),
@@ -205,30 +226,18 @@ class _HomeScreenState extends State<HomeScreen> {
             child: IconButton(
               icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
               onPressed: () {
+                // ✅ التصحيح هنا: تم وضع الـ token داخل أقواس الـ NotificationsScreen بشكل صحيح ومباشر لمنع الخطأ
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const NotificationsScreen(userType: "passenger")),
+                  MaterialPageRoute(
+                    builder: (context) => NotificationsScreen(
+                      userType: "passenger",
+                      token: userToken, // 👈 هنا تم إصلاح الخطأ وتمرير التوكن الإجباري المطلوب
+                    ),
+                  ),
                 );
               },
             ),
-          ),
-          Row(
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  // ✅ الترحيب باسم المستخدم
-                  Text("أهلاً بك، $userName 👋", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                  Text(loc.translate('where_to_go_today'), style: const TextStyle(fontSize: 12, color: Colors.white70)),
-                ],
-              ),
-              const SizedBox(width: 12),
-              const CircleAvatar(
-                radius: 22,
-                backgroundColor: Color(0xFF0D1B3E),
-                child: Icon(Icons.person, color: Colors.white),
-              ),
-            ],
           ),
         ],
       ),
@@ -260,14 +269,14 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             children: [
               Expanded(
+                child: _buildDropdownField(Icons.access_time, loc.translate('period'), provider.selectedTime, times, (val) => provider.updateSelectedTime(val), isDark, isAr),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
                 child: InkWell(
                   onTap: () => _selectDate(context, provider),
                   child: _buildSearchField(Icons.calendar_today, loc.translate('date'), "${provider.selectedDate.day} / ${provider.selectedDate.month}", isDark, isAr),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildDropdownField(Icons.access_time, loc.translate('period'), provider.selectedTime, times, (val) => provider.updateSelectedTime(val), isDark, isAr),
               ),
             ],
           ),
@@ -286,10 +295,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       company: provider.selectedCompany ?? '',
                       travelDate: provider.selectedDate,
                       timePeriod: provider.selectedTime ?? '',
-                      fromCityId: 0, 
-                      toCityId: 0,
-                      companyId: 0,
-                      periodId: 0,
+                      fromCityId: provider.selectedFromId, 
+                      toCityId: provider.selectedToId,
+                      companyId: provider.selectedCompanyId,
+                      periodId: provider.selectedPeriodId,
                     ),
                   ),
                 );
@@ -342,9 +351,11 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Row(
         children: [
+          Icon(icon, color: const Color(0xFFE79C24), size: 16), 
+          const SizedBox(width: 8),
           Expanded(
             child: Directionality(
-              textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+              textDirection: TextDirection.rtl,
               child: DropdownButtonHideUnderline(
                 child: DropdownButtonFormField<String>(
                   initialValue: verifiedValue,
@@ -355,10 +366,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     labelText: label,
                     labelStyle: TextStyle(fontSize: 11, color: labelColor, fontWeight: FontWeight.w500),
                     border: InputBorder.none,
+                    alignLabelWithHint: true,
                   ),
                   items: items.map((String value) => DropdownMenuItem(
                     value: value,
-                    alignment: isAr ? Alignment.centerRight : Alignment.centerLeft,
+                    alignment: Alignment.centerRight, 
                     child: Text(
                       value, 
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
@@ -370,8 +382,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 5),
-          Icon(icon, color: const Color(0xFFE79C24), size: 16),
         ],
       ),
     );
@@ -382,7 +392,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final borderColor = isDark ? Colors.transparent : const Color(0xFFF3F4F6);
     final textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
     final labelColor = isDark ? Colors.grey[400] : const Color(0xFF6B7280);
-    final align = isAr ? CrossAxisAlignment.end : CrossAxisAlignment.start;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -392,11 +401,13 @@ class _HomeScreenState extends State<HomeScreen> {
         border: Border.all(color: borderColor),
       ),
       child: Row(
-        mainAxisAlignment: isAr ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
+          Icon(icon, color: const Color(0xFFE79C24), size: 16), 
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
-              crossAxisAlignment: align,
+              crossAxisAlignment: CrossAxisAlignment.start, 
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(label, style: TextStyle(fontSize: 11, color: labelColor)),
@@ -404,18 +415,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 5),
-          Icon(icon, color: const Color(0xFFE79C24), size: 16),
         ],
       ),
     );
   }
 
-  // ✅ كرت الرحلة القادمة المربوط بالسيرفر
   Widget _buildEnhancedTripCard(bool isDark, AppLocalizations loc, bool isAr) {
     final cardColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFF0D1B3E);
     
-    // أثناء التحميل
     if (isExtraLoading) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 25),
@@ -425,7 +432,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // إذا لم يكن هناك أي حجز قادم
     if (upcomingTrip == null) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 25),
@@ -436,20 +442,19 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(25),
           boxShadow: [BoxShadow(color: cardColor.withValues(alpha: 0.2), blurRadius: 15, offset: const Offset(0, 8))]
         ),
-        child: Column(
+        child: const Column(
           children: [
-            const Icon(Icons.bus_alert, color: Colors.white54, size: 40),
-            const SizedBox(height: 10),
-            const Text("لا توجد لديك رحلات قادمة حالياً", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 5),
-            const Text("احجز رحلتك الآن وانطلق في مغامرتك القادمة!", style: TextStyle(color: Colors.white70, fontSize: 12)),
-            const SizedBox(height: 10),
+            Icon(Icons.bus_alert, color: Colors.white54, size: 40),
+            SizedBox(height: 10),
+            Text("لا توجد لديك رحلات قادمة حالياً", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            SizedBox(height: 5),
+            Text("احجز رحلتك الآن وانطلق في مغامرتك القادمة!", style: TextStyle(color: Colors.white70, fontSize: 12)),
+            SizedBox(height: 10),
           ],
         ),
       );
     }
 
-    // إذا كان هناك حجز قادم
     final trip = upcomingTrip!;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 25),
@@ -504,7 +509,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ✅ قائمة الشركات مربوطة بصور السيرفر
   Widget _buildCompaniesList(bool isDark) {
     if (isExtraLoading) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFFE79C24)));
@@ -539,7 +543,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // إذا كان الرابط موجود نعرض الصورة، وإلا نعرض أيقونة باص
                 logoUrl.isNotEmpty
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(10),
@@ -571,11 +574,11 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)), 
           GestureDetector(
             onTap: onTap,
-            child: Text(loc.translate('view_all'), style: const TextStyle(fontSize: 12, color: Color(0xFFE79C24), fontWeight: FontWeight.bold)),
+            child: Text(loc.translate('view_all'), style: const TextStyle(fontSize: 12, color: Color(0xFFE79C24), fontWeight: FontWeight.bold)), 
           ),
-          Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
         ],
       ),
     );

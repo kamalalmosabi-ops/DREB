@@ -15,14 +15,16 @@ class NotificationModel {
     this.isRead = false,
   });
 
-  // تحويل البيانات من JSON
+  // تحويل البيانات القادمة من السيرفر بأمان مع التعامل مع القيم الافتراضية
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
-      id: json['id'],
-      title: json['title'],
-      body: json['body'],
-      category: json['category'],
-      createdAt: DateTime.parse(json['createdAt']),
+      id: json['id'] ?? 0,
+      title: json['title'] ?? '',
+      body: json['body'] ?? '',
+      category: json['category'] ?? 1,
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now(),
       isRead: json['isRead'] ?? false,
     );
   }
@@ -43,7 +45,7 @@ class NotificationModel {
     return list.where((n) => n.categoryName == filter).toList();
   }
 
-  // يمكنك إضافة هذه القائمة للاختبار (Dummy Data)
+  // قائمة للاختبار وفحص الواجهات قبل الربط النهائي (Dummy Data)
   static List<NotificationModel> get dummyNotifications => [
     NotificationModel(
       id: 1,

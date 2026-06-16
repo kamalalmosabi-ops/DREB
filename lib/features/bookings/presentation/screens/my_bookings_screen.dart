@@ -29,7 +29,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   Future<void> _initData() async {
     setState(() => _isLoading = true);
     _statuses = await _service.getBookingStatuses();
-    // جلب الحجوزات للحالة رقم 1 (أو حسب ما تختاره)
     await _fetchBookings(_selectedStatusId);
     setState(() => _isLoading = false);
   }
@@ -65,7 +64,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
         backgroundColor: bgColor,
         body: Column(
           children: [
-            _buildModernHeader(textColor, loc),
+            _buildModernHeader(textColor, loc, isAr), // ✅ سيقوم بفحص حالة السهم تلقائياً الآن
             _buildHorizontalFilterBar(textColor, isDark, isAr),
             Expanded(
               child: _isLoading
@@ -84,17 +83,50 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     );
   }
 
-  Widget _buildModernHeader(Color textColor, AppLocalizations loc) {
+  // ✅ تعديل الهيدر ليعرض السهم فقط عند الحاجة ويخفيه داخل الـ Navbar
+  Widget _buildModernHeader(Color textColor, AppLocalizations loc, bool isAr) {
+    // التحقق الفوري: هل هناك شاشة خلفنا يمكن الرجوع إليها؟
+    final bool canPop = ModalRoute.of(context)?.canPop ?? false;
+
     return Container(
-      padding: const EdgeInsets.only(top: 50, bottom: 25, left: 15, right: 15),
+      padding: const EdgeInsets.only(top: 40, bottom: 20),
       decoration: const BoxDecoration(
         color: Color(0xFFE79C24),
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
       ),
-      child: Center(
-        child: Text(
-          loc.translate('my_bookings'), 
-          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)
+      child: SafeArea(
+        bottom: false,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // يظهر زر السهم فقط إذا جاء المستخدم من شاشة أخرى (مثل عرض الكل بالرئيسية)
+            if (canPop)
+              Positioned(
+                right: isAr ? 15 : null,
+                left: isAr ? null : 15,
+                child: IconButton(
+                  icon: Icon(
+                    isAr ? Icons.arrow_back_ios_new_rounded : Icons.arrow_forward_ios_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+            // عنوان الصفحة ثابت بالمنتصف دائماً
+            Center(
+              child: Text(
+                loc.translate('my_bookings'), 
+                style: const TextStyle(
+                  color: Colors.white, 
+                  fontSize: 20, 
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -151,11 +183,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      // ✅ قراءة اسم الشركة الحقيقي
                       child: Text(trip['companyName'] ?? loc.translate('unknown_company'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor), overflow: TextOverflow.ellipsis),
                     ),
                     const SizedBox(width: 8),
-                    // رقم الحجز كبديل عن حالة الحجز لأن الـ API هنا لا يعيد حالة نصية
                     _statusChip("#${trip['bookingId'] ?? '---'}"), 
                   ],
                 ),
@@ -163,13 +193,11 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // ✅ ربط المدن بالبيانات الحقيقية (startGovernorate)
                     Expanded(child: _locationCol(trip['startGovernorate'] ?? "---", "انطلاق", textColor, subTextColor)),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8.0),
                       child: Icon(Icons.swap_horiz, color: Colors.grey, size: 24),
                     ),
-                    // ✅ ربط المدن بالبيانات الحقيقية (endGovernorate)
                     Expanded(child: _locationCol(trip['endGovernorate'] ?? "---", "وصول", textColor, subTextColor)),
                   ],
                 ),
@@ -182,11 +210,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // ✅ ربط السعر الحقيقي (totalAmount)
                 Text("${trip['totalAmount'] ?? 0} ${loc.translate('riyals')}", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFE79C24))),
                 ElevatedButton(
                   onPressed: () {
-                    // الانتقال لشاشة التفاصيل التي برمجناها بالأسفل
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -229,7 +255,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 }
 
 // ============================================================================
-// شاشة تفاصيل الحجز (مدمجة هنا لتجنب أي أخطاء استيراد)
+// شاشة تفاصيل الحجز
 // ============================================================================
 class BookingDetailsScreen extends StatelessWidget {
   final Map<String, dynamic> bookingData;
