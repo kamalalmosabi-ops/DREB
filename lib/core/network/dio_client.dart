@@ -1,14 +1,23 @@
 import 'package:dio/dio.dart';
 
 class DioClient {
+  // 1. إنشاء نسخة واحدة مشتركة (Singleton) للتطبيق بالكامل
+  static final DioClient _instance = DioClient._internal();
+
+  // 2. Factory يُرجع نفس النسخة دائماً عند استدعاء DioClient()
+  factory DioClient() {
+    return _instance;
+  }
+
   final Dio _dio;
 
-  // الوصول المباشر لكائن Dio (لأغراض تحديث الهيدرز مثل التوكين)
+  // الوصول المباشر لكائن Dio
   Dio get dio => _dio;
 
   static const String baseUrl = "https://server-darb.runasp.net/api"; 
 
-  DioClient()
+  // 3. المنشئ الداخلي الذي يتم استدعاؤه مرة واحدة فقط
+  DioClient._internal()
       : _dio = Dio(
           BaseOptions(
             baseUrl: baseUrl,
@@ -30,6 +39,11 @@ class DioClient {
   // دالة لتحديث التوكين في الهيدرز (تُستخدم بعد تسجيل الدخول)
   void setToken(String token) {
     _dio.options.headers['Authorization'] = 'Bearer $token';
+  }
+
+  // دالة لمسح التوكين (تُستخدم عند تسجيل الخروج)
+  void clearToken() {
+    _dio.options.headers.remove('Authorization');
   }
 
   // 1. دالة جلب البيانات الموحدة (GET Request)
@@ -60,6 +74,8 @@ class DioClient {
       case DioExceptionType.badResponse:
         final statusCode = error.response?.statusCode;
         final message = error.response?.data?['message'];
+        // تحسين عرض الخطأ لتسهيل التتبع
+        if (statusCode == 401) return "غير مصرح لك (401). يرجى التأكد من تسجيل الدخول.";
         return message ?? "حدث خطأ في السيرفر: كود $statusCode";
       case DioExceptionType.connectionError:
         return "فشل الاتصال بالسيرفر، يرجى التأكد من شبكة الإنترنت لديك.";

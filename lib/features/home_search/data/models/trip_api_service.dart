@@ -1,40 +1,37 @@
 import 'package:flutter/foundation.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:darb/core/network/dio_client.dart'; // تأكد من صحة مسار DioClient
 import '../models/trip_model.dart'; 
 
 class TripApiService {
-  // تم وضع رابط السيرفر الفعلي وتصحيحه بناءً على سجلات مشروعكِ
-  final String baseUrl = "https://server-darb.runasp.net/api"; 
+  final DioClient _dioClient = DioClient();
 
-  Future<List<Trip>> searchTrips(String from, String to, String date) async {
+  // 1. دالة البحث المخصصة (تستقبل الآن أرقام IDs حسب الـ Swagger بدلاً من نصوص)
+  Future<List<Trip>> searchTrips({
+    required int fromGovernorateId,
+    required int toGovernorateId,
+    required int companyId,
+    required int periodId,
+    required String date,
+  }) async {
     try {
-      // إرسال الطلب عبر POST كما يقتضي الـ Swagger للبحث
-      final response = await http.post(
-        Uri.parse('$baseUrl/Customer/home/search'),
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
+      final response = await _dioClient.post(
+        '/Customer/home/search',
+        data: {
+          "fromGovernorateId": fromGovernorateId,
+          "toGovernorateId": toGovernorateId,
+          "companyId": companyId,
+          "periodId": periodId,
+          // ✅ السطر السحري: إذا كان التاريخ فارغاً نرسل null، وإلا نرسل التاريخ لتجنب خطأ 400
+          "date": date.isEmpty ? null : date,
         },
-        body: jsonEncode({
-          "fromCity": from,
-          "toCity": to,
-          "date": date,
-        }),
       );
 
-      // طباعة الرد في الـ Console لسهولة تتبع البيانات ومعرفة المشاكل مستقبلاً
-      debugPrint("=== [Darb API Request] ===");
-      debugPrint("URL: $baseUrl/Customer/home/search");
+      debugPrint("=== [API Request - SEARCH TRIPS] ===");
       debugPrint("Status Code: ${response.statusCode}");
-      debugPrint("Response Body: ${response.body}");
 
-      if (response.statusCode == 200) {
-        if (response.body.isEmpty) return [];
+      if (response.statusCode == 200 && response.data != null) {
+        final decodedData = response.data;
         
-        final decodedData = jsonDecode(response.body);
-        
-        // التحقق الذكي من نوع البيانات لمنع كراش الأنماط (Subtype of string/int)
         if (decodedData is List) {
           return decodedData.map((item) => Trip.fromJson(item)).toList();
         } else if (decodedData is Map && decodedData.containsKey('trips')) {
@@ -44,13 +41,53 @@ class TripApiService {
           List dataList = decodedData['data'];
           return dataList.map((item) => Trip.fromJson(item)).toList();
         }
+        return [];
+      } else {
+        throw Exception("فشل البحث: رمز الخطأ ${response.statusCode}");
+      }
+    } catch (e) {
+      debugPrint("خطأ في خدمة البحث: $e");
+      rethrow;
+    }
+  }
+
+  // 2. الدالة الجديدة: جلب جميع الرحلات (باستخدام نفس الرابط ولكن بإرسال 0)
+  Future<List<Trip>> getAllTrips() async {
+    try {
+      // حسب الـ Swagger: إذا أرسلنا قيم فارغة (أصفار)، سيرجع السيرفر كافة الرحلات المجدولة
+      final response = await _dioClient.post(
+        '/Customer/home/search',
+        data: {
+          "fromGovernorateId": 0,
+          "toGovernorateId": 0,
+          "companyId": 0,
+          "periodId": 0,
+          // ✅ تم التعديل هنا: نرسل null بدلاً من "" لكي يقبلها السيرفر بدون أخطاء
+          "date": null, 
+        },
+      );
+
+      debugPrint("=== [API Request - GET ALL TRIPS] ===");
+      debugPrint("Status Code: ${response.statusCode}");
+
+      if (response.statusCode == 200 && response.data != null) {
+        final decodedData = response.data;
         
+        if (decodedData is List) {
+          return decodedData.map((item) => Trip.fromJson(item)).toList();
+        } else if (decodedData is Map && decodedData.containsKey('data')) {
+          List dataList = decodedData['data'];
+          return dataList.map((item) => Trip.fromJson(item)).toList();
+        } else if (decodedData is Map && decodedData.containsKey('trips')) {
+          List tripsList = decodedData['trips'];
+          return tripsList.map((item) => Trip.fromJson(item)).toList();
+        }
         return [];
       } else {
         throw Exception("فشل جلب الرحلات: رمز الخطأ ${response.statusCode}");
       }
     } catch (e) {
-      debugPrint("خطأ في كلاس الـ API Service: $e");
+      debugPrint("خطأ في خدمة جلب جميع الرحلات: $e");
       rethrow;
     }
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+
 class SettingsProvider with ChangeNotifier {
   bool _isDark = false;
   Locale _locale = const Locale('ar');

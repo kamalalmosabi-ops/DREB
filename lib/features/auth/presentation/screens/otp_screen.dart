@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:darb/features/auth/presentation/providers/auth_provider.dart';
 import 'package:darb/features/auth/presentation/screens/login_screen.dart';
 
+import 'package:darb/core/localization/app_localizations.dart';
+import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
+
 class OtpScreen extends StatefulWidget {
-  // استقبال جميع المتغيرات لتسجيلها لاحقاً
   final String email;
   final String password;
   final String fullName;
@@ -41,17 +43,26 @@ class _OtpScreenState extends State<OtpScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final settings = Provider.of<SettingsProvider>(context);
+    final loc = AppLocalizations.of(context)!;
+
+    final isDark = settings.isDark;
+    final isAr = settings.locale.languageCode == 'ar';
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
+    final subTextColor = isDark ? Colors.grey[400]! : const Color(0xFF374151);
+    final pinBgColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF9FAFB);
 
     final defaultPinTheme = PinTheme(
       width: 56,
       height: 56,
-      textStyle: const TextStyle(
+      textStyle: TextStyle(
         fontSize: 22,
-        color: Color(0xFF0D1B3E),
+        color: textColor,
         fontWeight: FontWeight.w600,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: pinBgColor,
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Colors.transparent),
       ),
@@ -63,11 +74,11 @@ class _OtpScreenState extends State<OtpScreen> {
     );
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: bgColor,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: IconThemeData(color: textColor),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -82,27 +93,28 @@ class _OtpScreenState extends State<OtpScreen> {
                 color: Color(0xFFE79C24),
               ),
               const SizedBox(height: 24),
-              const Text(
-                "تأكيد الحساب",
+              Text(
+                loc.translate('confirm_account'),
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF0D1B3E),
+                  color: textColor,
                 ),
               ),
               const SizedBox(height: 12),
               Text(
-                "أدخل الرمز المكون من 6 أرقام الذي أرسلناه للتو إلى بريدك الإلكتروني:\n${widget.email}",
+                "${loc.translate('enter_6_digit_code')}${widget.email}",
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
-                  color: Color(0xFF374151),
+                  color: subTextColor,
                   height: 1.5,
                 ),
-                textDirection: TextDirection.rtl,
+                textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
               ),
               const SizedBox(height: 40),
               
+              // الـ Pinput دائماً خله LTR عشان الأرقام تنكتب من اليسار لليمين صح
               Directionality(
                 textDirection: TextDirection.ltr,
                 child: Pinput(
@@ -125,14 +137,10 @@ class _OtpScreenState extends State<OtpScreen> {
                       String otpCode = pinController.text.trim();
                       if (otpCode.length == 6) {
                         
-                        // 1. نتأكد من صحة الرمز أولاً
                         bool isOtpValid = await authProvider.verifyRegistrationOTP(widget.email, otpCode);
-                        
-                        // السطر الذهبي المستقل
                         if (!context.mounted) return;
                         
                         if (isOtpValid) {
-                          // 2. إذا كان الرمز صحيحاً، نقوم الآن بتسجيل الحساب في السيرفر
                           bool isRegistered = await authProvider.registerCustomer(
                             name: widget.fullName,
                             email: widget.email,
@@ -147,7 +155,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
                           if (isRegistered) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("تم تأكيد وتسجيل الحساب بنجاح!"))
+                              SnackBar(content: Text(loc.translate('account_registered_success')))
                             );
                             
                             Navigator.pushAndRemoveUntil(
@@ -157,17 +165,17 @@ class _OtpScreenState extends State<OtpScreen> {
                             );
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(authProvider.errorMessage ?? "حدث خطأ أثناء حفظ البيانات."))
+                              SnackBar(content: Text(authProvider.errorMessage ?? loc.translate('error_saving_data')))
                             );
                           }
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(authProvider.errorMessage ?? "الرمز غير صحيح، يرجى المحاولة مرة أخرى."))
+                            SnackBar(content: Text(authProvider.errorMessage ?? loc.translate('invalid_otp_try_again')))
                           );
                         }
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("يرجى إدخال الرمز المكون من 6 أرقام بالكامل"))
+                          SnackBar(content: Text(loc.translate('enter_full_6_digits')))
                         );
                       }
                     },
@@ -177,9 +185,9 @@ class _OtpScreenState extends State<OtpScreen> {
                           borderRadius: BorderRadius.circular(15),
                         ),
                       ),
-                      child: const Text(
-                        "تأكيد",
-                        style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+                      child: Text(
+                        loc.translate('confirm'),
+                        style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),

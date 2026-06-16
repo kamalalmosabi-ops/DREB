@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:darb/features/home_search/data/models/trip_model.dart';  
 import 'package:darb/features/bookings/presentation/screens/reservation_screen.dart';  
+
+// استيراد الترجمة والدارك مود
+import 'package:darb/core/localization/app_localizations.dart';
+import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
 
 class TripDetailsScreen extends StatefulWidget {
   final Trip trip;
@@ -23,47 +28,57 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFFE79C24);
-    const darkBlue = Color(0xFF0D1B3E);
+    final settings = Provider.of<SettingsProvider>(context);
+    final loc = AppLocalizations.of(context)!;
     
-    int unitPrice = widget.trip.price;
+    final isDark = settings.isDark;
+    final isAr = settings.locale.languageCode == 'ar';
+    
+    const primaryColor = Color(0xFFE79C24);
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF4F7FA);
+    final cardColor = isDark ? const Color(0xFF2C2C2E) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
+    final subTextColor = isDark ? Colors.grey[400]! : Colors.grey;
+
+    // ✅ تم تحويل السعر إلى int لتجنب تعارض أنواع البيانات
+    int unitPrice = widget.trip.price.toInt();
 
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF4F7FA),
-        bottomNavigationBar: _buildStickyFooter(unitPrice, primaryColor, darkBlue),
+        backgroundColor: bgColor,
+        bottomNavigationBar: _buildStickyFooter(unitPrice, primaryColor, textColor, cardColor, subTextColor, loc, isAr),
         body: Column(
           children: [
             Expanded(
               child: CustomScrollView(
                 physics: const BouncingScrollPhysics(),
                 slivers: [
-                  _buildSliverHeader(primaryColor, darkBlue),
+                  _buildSliverHeader(primaryColor, isAr),
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildSectionTitle("مخطط الرحلة ومحطات التوقف"),
-                          _buildAdvancedTimeline(primaryColor),
+                          _buildSectionTitle(loc.translate('trip_itinerary_and_stops'), textColor),
+                          _buildAdvancedTimeline(primaryColor, cardColor, textColor, subTextColor, loc),
                           const SizedBox(height: 20),
                           
-                          _buildSectionTitle("سياسات الحجز والإلغاء"),
-                          _buildBookingPolicies(primaryColor),
+                          _buildSectionTitle(loc.translate('booking_cancellation_policies'), textColor),
+                          _buildBookingPolicies(primaryColor, cardColor, textColor, subTextColor, loc),
                           const SizedBox(height: 20),
                           
-                          _buildSectionTitle("سياسة الأمتعة والمتاع"),
-                          _buildBaggageInfo(),
+                          _buildSectionTitle(loc.translate('baggage_policy'), textColor),
+                          _buildBaggageInfo(cardColor, textColor, loc),
                           const SizedBox(height: 20),
                           
-                          _buildSectionTitle("مواصفات وتجهيزات الحافلة"),
-                          _buildBusEssentials(darkBlue),
+                          _buildSectionTitle(loc.translate('bus_specifications_equipments'), textColor),
+                          _buildBusEssentials(textColor, cardColor, loc),
                           const SizedBox(height: 20),
                           
-                          _buildSectionTitle("تحديد عدد المسافرين"),
-                          _buildQuantitySelector(primaryColor),
+                          _buildSectionTitle(loc.translate('select_passengers_count'), textColor),
+                          _buildQuantitySelector(primaryColor, cardColor, textColor, loc),
                           const SizedBox(height: 30),
                         ],
                       ),
@@ -78,7 +93,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
     );
   }
 
-  Widget _buildSliverHeader(Color primary, Color dark) {
+  Widget _buildSliverHeader(Color primary, bool isAr) {
     return SliverAppBar(
       expandedHeight: 150,
       pinned: true,
@@ -89,7 +104,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
         child: CircleAvatar(
           backgroundColor: Colors.white.withValues(alpha: 0.3),
           child: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+            icon: Icon(isAr ? Icons.arrow_back_ios_new : Icons.arrow_forward_ios, color: Colors.white, size: 18),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -109,7 +124,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
               children: [
                 const SizedBox(height: 10),
                 Text(
-                  "${widget.trip.fromCity} ⟵ ${widget.trip.toCity}", 
+                  "${widget.trip.fromCity} ${isAr ? '⟵' : '⟶'} ${widget.trip.toCity}", 
                   style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 6),
@@ -133,34 +148,27 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
     );
   }
 
-  Widget _buildAdvancedTimeline(Color primary) {
+  Widget _buildAdvancedTimeline(Color primary, Color cardColor, Color textColor, Color subTextColor, AppLocalizations loc) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white, 
+        color: cardColor, 
         borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
       child: Column(
         children: [
-          _buildTimelineItem(widget.trip.departureTime, widget.trip.fromCity, "محطة الانطلاق الرئيسية", true, primary),
+          // ✅ محطة الانطلاق الرئيسية
+          _buildTimelineItem(widget.trip.departureTime, widget.trip.fromCity, loc.translate('main_departure_station'), true, primary, textColor, subTextColor),
           
-          if (widget.trip.routes.isNotEmpty)
-            ...widget.trip.routes.map((route) => _buildTimelineItem(
-                  route.departureTime, 
-                  route.stationName, 
-                  "محطة توقف فرعية", 
-                  true, 
-                  primary.withValues(alpha: 0.7),
-                )),
-                
-          _buildTimelineItem(widget.trip.arrivalTime.isNotEmpty ? widget.trip.arrivalTime : "وصول متوقع", widget.trip.toCity, "المحطة النهائية للوصول", false, Colors.green),
+          // ✅ محطة الوصول النهائية (تم تنظيف الحقل المعطوب هنا)
+          _buildTimelineItem(widget.trip.arrivalTime.isNotEmpty ? widget.trip.arrivalTime : loc.translate('expected_arrival'), widget.trip.toCity, loc.translate('final_arrival_station'), false, Colors.green, textColor, subTextColor),
         ],
       ),
     );
   }
 
-  Widget _buildTimelineItem(String time, String loc, String sub, bool showLine, Color color) {
+  Widget _buildTimelineItem(String time, String city, String sub, bool showLine, Color color, Color textColor, Color subTextColor) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -170,7 +178,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
               margin: const EdgeInsets.only(top: 4),
               child: Icon(Icons.radio_button_checked, color: color, size: 16),
             ),
-            if (showLine) Container(width: 2, height: 40, color: Colors.grey[200]),
+            if (showLine) Container(width: 2, height: 40, color: Colors.grey[300]),
           ],
         ),
         const SizedBox(width: 15),
@@ -183,9 +191,9 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(loc, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0D1B3E))),
+                    Text(city, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor)),
                     const SizedBox(height: 2),
-                    Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text(sub, style: TextStyle(color: subTextColor, fontSize: 12)),
                   ],
                 ),
                 Text(time, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
@@ -197,29 +205,29 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
     );
   }
 
-  Widget _buildBookingPolicies(Color primary) {
+  Widget _buildBookingPolicies(Color primary, Color cardColor, Color textColor, Color subTextColor, AppLocalizations loc) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: primary.withValues(alpha: 0.1)),
       ),
       child: Column(
         children: [
-          _policyRow(Icons.history_toggle_off, "التعديل والإلغاء:", "مسموح قبل موعد انطلاق الرحلة بـ 6 ساعات."),
+          _policyRow(Icons.history_toggle_off, loc.translate('modification_cancellation'), loc.translate('allowed_6_hours_before'), textColor, subTextColor),
           const SizedBox(height: 12),
-          _policyRow(Icons.timer_outlined, "وقت الحضور:", "الرجاء التواجد بالمحطة قبل الإقلاع بـ 30 دقيقة."),
+          _policyRow(Icons.timer_outlined, loc.translate('attendance_time'), loc.translate('be_at_station_30_mins_before'), textColor, subTextColor),
           const SizedBox(height: 12),
-          _policyRow(Icons.business_center_outlined, "نقطة الإنزال:", "يتم الإنزال في فرع الشركة الرئيسي بالمدينة المحددة."),
+          _policyRow(Icons.business_center_outlined, loc.translate('drop_off_point'), loc.translate('drop_off_main_branch'), textColor, subTextColor),
           const SizedBox(height: 12),
-          _policyRow(Icons.assignment_turned_in_outlined, "تأكيد التذكرة:", "يعتبر الحجز مؤكداً بشكل نهائي فور رفع سند الدفع الإلكتروني."),
+          _policyRow(Icons.assignment_turned_in_outlined, loc.translate('ticket_confirmation'), loc.translate('booking_confirmed_after_receipt'), textColor, subTextColor),
         ],
       ),
     );
   }
 
-  Widget _policyRow(IconData icon, String title, String desc) {
+  Widget _policyRow(IconData icon, String title, String desc, Color textColor, Color subTextColor) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -228,9 +236,9 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
         Expanded(
           child: RichText(
             text: TextSpan(
-              style: const TextStyle(fontSize: 12, color: Colors.black87, fontFamily: 'Cairo'),
+              style: TextStyle(fontSize: 12, color: subTextColor, fontFamily: 'Tajawal'),
               children: [
-                TextSpan(text: "$title ", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0D1B3E))),
+                TextSpan(text: "$title ", style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
                 TextSpan(text: desc),
               ],
             ),
@@ -240,58 +248,64 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
     );
   }
 
-  Widget _buildBaggageInfo() {
+  Widget _buildBaggageInfo(Color cardColor, Color textColor, AppLocalizations loc) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20)),
+      child: Row(
         children: [
-          _IconText(Icons.luggage, "الوزن المشحون: 25 كجم متاح"),
-          _IconText(Icons.shopping_bag, "حقيبة يد: 7 كجم داخل المقصورة"),
+          Expanded(child: _IconText(Icons.luggage, loc.translate('checked_baggage_25kg'), textColor)),
+          const SizedBox(width: 10),
+          Expanded(child: _IconText(Icons.shopping_bag, loc.translate('hand_baggage_7kg'), textColor)),
         ],
       ),
     );
   }
 
-  Widget _buildBusEssentials(Color dark) {
+  Widget _buildBusEssentials(Color textColor, Color cardColor, AppLocalizations loc) {
     final List<Map<String, dynamic>> essentials = [
-      {"icon": Icons.ac_unit, "label": "تكييف ممتاز"},
-      {"icon": Icons.wifi, "label": "واي فاي"},
-      {"icon": Icons.bolt, "label": "منفذ شحن"},
-      {"icon": Icons.airline_seat_recline_normal, "label": "مقاعد مريحة"},
+      {"icon": Icons.ac_unit, "label": loc.translate('excellent_ac')},
+      {"icon": Icons.wifi, "label": loc.translate('wifi')},
+      {"icon": Icons.bolt, "label": loc.translate('charging_port')},
+      {"icon": Icons.airline_seat_recline_normal, "label": loc.translate('comfortable_seats')},
     ];
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: essentials.map((item) => Column(
           children: [
-            Icon(item['icon'], size: 24, color: dark),
+            Icon(item['icon'], size: 24, color: textColor),
             const SizedBox(height: 6),
-            Text(item['label'], style: TextStyle(fontSize: 11, color: dark, fontWeight: FontWeight.bold)),
+            Text(item['label'], style: TextStyle(fontSize: 11, color: textColor, fontWeight: FontWeight.bold)),
           ],
         )).toList(),
       ),
     );
   }
 
-  Widget _buildQuantitySelector(Color primary) {
+  Widget _buildQuantitySelector(Color primary, Color cardColor, Color textColor, AppLocalizations loc) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20)),
       child: Row(
         children: [
-          const Text("عدد المقاعد المطلوب حجزها", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0D1B3E))),
-          const Spacer(),
+          Expanded(
+            child: Text(
+              loc.translate('seats_to_book'), 
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
           IconButton(
             onPressed: () => setState(() => ticketCount > 1 ? ticketCount-- : null), 
             icon: const Icon(Icons.remove_circle_outline, size: 24, color: Colors.grey),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text("$ticketCount", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            child: Text("$ticketCount", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
           ),
           IconButton(
             onPressed: () {
@@ -299,7 +313,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                 setState(() => ticketCount++);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("عذراً، لقد وصلت للحد الأقصى للمقاعد المتاحة")),
+                  SnackBar(content: Text(loc.translate('max_seats_reached'))),
                 );
               }
             }, 
@@ -310,12 +324,12 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
     );
   }
 
-  Widget _buildStickyFooter(int unitPrice, Color primary, Color dark) {
+  Widget _buildStickyFooter(int unitPrice, Color primary, Color textColor, Color cardColor, Color subTextColor, AppLocalizations loc, bool isAr) {
     return Container(
       height: 90, 
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: const BorderRadius.only(topRight: Radius.circular(25), topLeft: Radius.circular(25)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
       ),
@@ -325,8 +339,8 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("المبلغ الإجمالي للحجز", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500)),
-              Text("${unitPrice * ticketCount} ر.ي", style: TextStyle(color: dark, fontSize: 20, fontWeight: FontWeight.w900)),
+              Text(loc.translate('total_booking_amount'), style: TextStyle(color: subTextColor, fontSize: 11, fontWeight: FontWeight.w500)),
+              Text("${unitPrice * ticketCount} ${loc.translate('yer')}", style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.w900)),
             ],
           ),
           const SizedBox(width: 25),
@@ -339,24 +353,24 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                     builder: (context) => ReservationScreen(
                       ticketCount: ticketCount,
                       unitPrice: unitPrice,
-                      route: "${widget.trip.fromCity} ⟵ ${widget.trip.toCity}",
+                      route: "${widget.trip.fromCity} ${isAr ? '⟵' : '⟶'} ${widget.trip.toCity}",
                       companyName: widget.companyName,
                       departureTime: widget.trip.departureTime,
-                      tripRouteId: widget.trip.id,      
-                      // تم الاعتماد على معرف الرحلة مؤقتاً لتخطي مشكلة غياب حقل الشركة في كائن الرحلة
-                      companyId: widget.trip.id,  
+                      // ✅ تم استخدام التسمية الصحيحة المحدثة بموديل السيرفر الجديد tripId
+                      tripRouteId: widget.trip.tripId,      
+                      companyId: widget.trip.companyId,  
                     ),
                   ),
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: dark, 
-                foregroundColor: Colors.white,
+                backgroundColor: textColor, 
+                foregroundColor: cardColor,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 elevation: 0,
               ),
-              child: const Text("استمرار وتأكيد المقاعد", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              child: Text(loc.translate('continue_confirm_seats'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -364,16 +378,17 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
     );
   }
 
-  Widget _buildSectionTitle(String title) => Padding(
-    padding: const EdgeInsets.only(bottom: 10, right: 4),
-    child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0D1B3E))),
+  Widget _buildSectionTitle(String title, Color textColor) => Padding(
+    padding: const EdgeInsets.only(bottom: 10, right: 4, left: 4),
+    child: Text(title, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: textColor)),
   );
 }
 
 class _IconText extends StatelessWidget {
   final IconData icon;
   final String text;
-  const _IconText(this.icon, this.text);
+  final Color textColor;
+  const _IconText(this.icon, this.text, this.textColor);
 
   @override
   Widget build(BuildContext context) {
@@ -381,7 +396,13 @@ class _IconText extends StatelessWidget {
       children: [
         Icon(icon, size: 20, color: const Color(0xFFE79C24)),
         const SizedBox(width: 6),
-        Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black.withValues(alpha: 0.8))),
+        Flexible(
+          child: Text(
+            text, 
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textColor.withValues(alpha: 0.8)),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }

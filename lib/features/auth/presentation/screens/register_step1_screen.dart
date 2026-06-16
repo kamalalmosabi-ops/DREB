@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:darb/features/auth/presentation/screens/register_step2_screen.dart';
+
+// استيراد الترجمة ومدير الإعدادات للوضع الليلي
+import 'package:darb/core/localization/app_localizations.dart';
+import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
 
 class RegisterStep1Screen extends StatefulWidget {
   const RegisterStep1Screen({super.key});
@@ -14,64 +19,83 @@ class _RegisterStep1ScreenState extends State<RegisterStep1Screen> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   
-  // المتغيرات للتحكم بحالة إظهار كلمة المرور
   bool _isObscurePassword = true;
   bool _isObscureConfirm = true;
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
+    final loc = AppLocalizations.of(context)!;
+
+    // الألوان
+    final isDark = settings.isDark;
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
+    final labelColor = isDark ? Colors.grey[300]! : const Color(0xFF374151);
+    final tfFillColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF9FAFB);
+    final hintColor = isDark ? Colors.grey[500]! : Colors.grey[600]!;
+
+    // المحاذاة
+    final isAr = settings.locale.languageCode == 'ar';
+    final align = isAr ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: bgColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 30),
           child: Form(
             key: _formKey,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end, // المحاذاة لليمين
+              crossAxisAlignment: align,
               children: [
                 const SizedBox(height: 20),
-                Align(alignment: Alignment.topRight, child: _buildCircleBackButton(context)),
+                Align(
+                  alignment: isAr ? Alignment.topRight : Alignment.topLeft, 
+                  child: _buildCircleBackButton(context, isAr)
+                ),
                 const SizedBox(height: 20),
-                const Center(child: Text("إنشاء حساب جديد", style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Color(0xFF0D1B3E)))),
+                Center(child: Text(loc.translate('create_new_account'), style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: textColor))),
                 const SizedBox(height: 15),
-                Center(child: _buildSteps(1)), // مؤشر الخطوات
+                Center(child: _buildSteps(1)), 
                 const SizedBox(height: 30),
                 
-                _buildLabel("البريد الإلكتروني"),
-                _buildTextField(hint: "example@gmail.com", controller: _emailController, isEmail: true),
+                _buildLabel(loc.translate('email'), labelColor),
+                _buildTextField(hint: "example@gmail.com", controller: _emailController, isEmail: true, isAr: isAr, tfFillColor: tfFillColor, textColor: textColor, hintColor: hintColor, loc: loc),
                 
-                _buildLabel("كلمة المرور"),
+                _buildLabel(loc.translate('password'), labelColor),
                 _buildTextField(
                   hint: "********", 
                   controller: _passwordController, 
                   isPassword: true,
-                  isObscure: _isObscurePassword, // تمرير الحالة الحالية
+                  isObscure: _isObscurePassword, 
+                  isAr: isAr, tfFillColor: tfFillColor, textColor: textColor, hintColor: hintColor, loc: loc,
                   onToggleVisibility: () {
                     setState(() {
-                      _isObscurePassword = !_isObscurePassword; // عكس الحالة عند الضغط
+                      _isObscurePassword = !_isObscurePassword; 
                     });
                   }
                 ),
                 
-                _buildLabel("تأكيد كلمة المرور"),
+                _buildLabel(loc.translate('confirm_password'), labelColor),
                 _buildTextField(
                   hint: "********", 
                   controller: _confirmController, 
                   isPassword: true,
-                  isObscure: _isObscureConfirm, // تمرير الحالة الحالية
+                  isObscure: _isObscureConfirm, 
+                  isAr: isAr, tfFillColor: tfFillColor, textColor: textColor, hintColor: hintColor, loc: loc,
                   onToggleVisibility: () {
                     setState(() {
-                      _isObscureConfirm = !_isObscureConfirm; // عكس الحالة عند الضغط
+                      _isObscureConfirm = !_isObscureConfirm; 
                     });
                   }
                 ),
                 
                 const SizedBox(height: 40),
-                _buildMainButton("التالي", () {
+                _buildMainButton(loc.translate('next'), () {
                   if (_formKey.currentState!.validate()) {
                     if (_passwordController.text != _confirmController.text) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("كلمات المرور غير متطابقة")));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.translate('passwords_do_not_match'))));
                       return;
                     }
                     Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterStep2Screen(
@@ -88,28 +112,32 @@ class _RegisterStep1ScreenState extends State<RegisterStep1Screen> {
     );
   }
 
-  // المكونات المساعدة
-  Widget _buildLabel(String text) => Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF374151))));
+  Widget _buildLabel(String text, Color color) => Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(text, style: TextStyle(fontWeight: FontWeight.bold, color: color)));
   
-  // دالة المساعدة المحدثة لدعم أيقونة العين
   Widget _buildTextField({
     required String hint, 
     required TextEditingController controller, 
     bool isPassword = false, 
     bool isEmail = false,
-    bool? isObscure, // لتحديد هل النص مخفي أم لا
-    VoidCallback? onToggleVisibility, // دالة تنفذ عند الضغط على العين
+    bool? isObscure,
+    VoidCallback? onToggleVisibility,
+    required bool isAr,
+    required Color tfFillColor,
+    required Color textColor,
+    required Color hintColor,
+    required AppLocalizations loc,
   }) => TextFormField(
     controller: controller, 
-    obscureText: isObscure ?? isPassword, // استخدام isObscure إذا تم تمريره، وإلا استخدام isPassword
-    textAlign: TextAlign.right,
-    validator: (v) => v == null || v.isEmpty ? "هذا الحقل مطلوب" : null,
+    obscureText: isObscure ?? isPassword, 
+    textAlign: isAr ? TextAlign.right : TextAlign.left,
+    style: TextStyle(color: textColor),
+    validator: (v) => v == null || v.isEmpty ? loc.translate('required_field') : null,
     decoration: InputDecoration(
       hintText: hint, 
+      hintStyle: TextStyle(color: hintColor),
       filled: true, 
-      fillColor: const Color(0xFFF9FAFB), 
+      fillColor: tfFillColor, 
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-      // إضافة أيقونة العين فقط إذا كان الحقل من نوع كلمة مرور
       prefixIcon: isPassword 
           ? IconButton(
               icon: Icon(
@@ -131,5 +159,13 @@ class _RegisterStep1ScreenState extends State<RegisterStep1Screen> {
   Widget _buildStepIndicator({required double width, required Color color}) => Container(width: width, height: 6, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)));
   
   Widget _buildMainButton(String text, VoidCallback onTap) => SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: onTap, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE79C24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))), child: Text(text, style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))));
-  Widget _buildCircleBackButton(BuildContext context) => GestureDetector(onTap: () => Navigator.pop(context), child: Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Color(0xFFE79C24), shape: BoxShape.circle), child: const Icon(Icons.arrow_forward, color: Colors.white)));
+  
+  Widget _buildCircleBackButton(BuildContext context, bool isAr) => GestureDetector(
+    onTap: () => Navigator.pop(context), 
+    child: Container(
+      padding: const EdgeInsets.all(8), 
+      decoration: const BoxDecoration(color: Color(0xFFE79C24), shape: BoxShape.circle), 
+      child: Icon(isAr ? Icons.arrow_forward : Icons.arrow_back, color: Colors.white)
+    )
+  );
 }

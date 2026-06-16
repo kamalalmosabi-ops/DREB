@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import 'package:darb/features/onboarding/presentation/screens/welcome_screen.dart';
+
+// استيراد مدير الإعدادات
+import '../../../settings/presentation/providers/settings_provider.dart';
+// استيراد قاموس الترجمة
+import '../../../../core/localization/app_localizations.dart';
+
 import 'edit_profile_screen.dart';
 import 'my_reviews_screen.dart';
 import 'security_privacy_screen.dart';
@@ -19,6 +26,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
   String? _errorMessage;
+  
+  bool _notificationsEnabled = true; 
 
   final String _baseUrl = "https://server-darb.runasp.net";
 
@@ -70,29 +79,136 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
+    final bool isDark = settings.isDark;
+
+    final Color bgColor = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF6F8FB);
+    final Color cardColor = isDark ? const Color(0xFF2C2C2E) : Colors.white;
+    final Color textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
+    final Color subTextColor = isDark ? Colors.grey[400]! : Colors.grey[600]!;
+    final Color primaryColor = const Color(0xFFE79C24); 
+
+    // التأكد من أن المترجم جاهز
+    final localizations = AppLocalizations.of(context);
+
     return Directionality(
-      textDirection: TextDirection.rtl,
+      // تغيير اتجاه الشاشة بناءً على اللغة المختارة
+      textDirection: settings.locale.languageCode == 'ar' ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF6F8FB),
+        backgroundColor: bgColor,
         body: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFFE79C24)))
+            ? Center(child: CircularProgressIndicator(color: primaryColor))
             : _errorMessage != null
                 ? Center(child: Padding(
                     padding: const EdgeInsets.all(20.0),
-                    child: Text(_errorMessage!, textAlign: TextAlign.center),
+                    child: Text(_errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: textColor)),
                   ))
                 : SingleChildScrollView(
                     child: Column(
                       children: [
                         _buildHeader(),
-                        const SizedBox(height: 20),
-                        _buildStatsBar(),
-                        const SizedBox(height: 25),
-                        _buildMenuSection(context),
-                        _buildLogoutButton(context),
-                        const SizedBox(height: 30),
-                        Text("إصدار التطبيق 1.0.24", style: TextStyle(color: Colors.grey[600], fontSize: 11)),
-                        const SizedBox(height: 20),
+                        
+                        Transform.translate(
+                          offset: const Offset(0, -30),
+                          child: _buildStatsBar(cardColor, textColor),
+                        ),
+                        
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(localizations?.translate('account_settings') ?? "إعدادات الحساب", style: TextStyle(color: subTextColor, fontSize: 14, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 10),
+                              
+                              Container(
+                                decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20)),
+                                child: Column(
+                                  children: [
+                                    _menuTile(Icons.person_outline_rounded, localizations?.translate('edit_profile') ?? "تعديل الحساب", textColor, subTextColor, () {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => EditProfileScreen(userData: _userData)));
+                                    }),
+                                    _buildDivider(cardColor),
+                                    _menuTile(Icons.star_outline_rounded, localizations?.translate('my_reviews') ?? "تقييماتي", textColor, subTextColor, () {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const MyReviewsScreen()));
+                                    }),
+                                    _buildDivider(cardColor),
+                                    _menuTile(Icons.lock_outline_rounded, localizations?.translate('security_privacy') ?? "الأمان والخصوصية", textColor, subTextColor, () {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityPrivacyScreen()));
+                                    }),
+                                  ],
+                                ),
+                              ),
+                              
+                              const SizedBox(height: 25),
+                              Text(localizations?.translate('app_preferences') ?? "تفضيلات التطبيق", style: TextStyle(color: subTextColor, fontSize: 14, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 10),
+
+                              Container(
+                                decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20)),
+                                child: Column(
+                                  children: [
+                                    SwitchListTile(
+                                      value: _notificationsEnabled,
+                                      onChanged: (value) => setState(() => _notificationsEnabled = value),
+                                      secondary: Icon(Icons.notifications_active_outlined, color: textColor),
+                                      title: Text(localizations?.translate('notifications') ?? "الإشعارات", style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 15)),
+                                      activeTrackColor: primaryColor,
+                                    ),
+                                    _buildDivider(cardColor),
+                                    ListTile(
+                                      leading: Icon(Icons.language, color: textColor),
+                                      title: Text(localizations?.translate('language') ?? "اللغة", style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 15)),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(settings.locale.languageCode == 'ar' ? "العربية" : "English", style: TextStyle(color: subTextColor, fontSize: 14)),
+                                          const SizedBox(width: 8),
+                                          Icon(Icons.arrow_forward_ios_rounded, size: 14, color: subTextColor),
+                                        ],
+                                      ),
+                                      onTap: () {
+                                        String newLang = settings.locale.languageCode == 'ar' ? 'en' : 'ar';
+                                        settings.setLocale(newLang);
+                                      },
+                                    ),
+                                    _buildDivider(cardColor),
+                                    SwitchListTile(
+                                      value: isDark,
+                                      onChanged: (value) => settings.toggleTheme(),
+                                      secondary: Icon(Icons.dark_mode_outlined, color: textColor),
+                                      title: Text(localizations?.translate('dark_mode') ?? "الوضع الليلي", style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 15)),
+                                      activeTrackColor: primaryColor,
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(height: 25),
+
+                              Container(
+                                decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20)),
+                                child: Column(
+                                  children: [
+                                    _menuTile(Icons.headset_mic_outlined, localizations?.translate('support') ?? "الدعم الفني", textColor, subTextColor, () {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportScreen()));
+                                    }),
+                                    _buildDivider(cardColor),
+                                    ListTile(
+                                      leading: const Icon(Icons.logout, color: Colors.redAccent),
+                                      title: Text(localizations?.translate('logout') ?? "تسجيل الخروج", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 15)),
+                                      trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: subTextColor),
+                                      onTap: () => _logout(context),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 30),
+                              Center(child: Text("إصدار التطبيق 1.0.24", style: TextStyle(color: subTextColor, fontSize: 12))),
+                              const SizedBox(height: 30),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -120,96 +236,86 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           const SizedBox(height: 30),
           const CircleAvatar(
-            radius: 50, 
+            radius: 45, 
             backgroundColor: Colors.white24, 
-            child: Icon(Icons.person, size: 50, color: Colors.white)
+            child: Icon(Icons.person, size: 45, color: Colors.white)
           ),
           const SizedBox(height: 15),
           Text(
-            _userData?['name'] ?? " User Name ", 
+            _userData?['name'] ?? "User Name", 
             style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)
           ),
           Text(
             _userData?['email'] ?? "example@email.com", 
-            style: TextStyle(color: Colors.black.withValues(alpha: 0.04), fontSize: 14)
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14)
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatsBar() {
+  Widget _buildStatsBar(Color cardColor, Color textColor) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 25),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(vertical: 20),
       decoration: BoxDecoration(
-        color: Colors.white, 
-        borderRadius: BorderRadius.circular(25), 
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20)]
+        color: cardColor, 
+        borderRadius: BorderRadius.circular(20), 
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 5)
+          )
+        ]
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _statItem("الرحلات", "0", Colors.blue),
-          _statItem("النقاط", "0", Colors.orange),
+          _statItem("الرحلات", "0", Colors.blue, textColor),
+          Container(height: 40, width: 1, color: Colors.grey.withValues(alpha: 0.3)),
+          _statItem("النقاط", "0", const Color(0xFFE79C24), textColor),
         ],
       ),
     );
   }
 
-  Widget _statItem(String label, String value, Color color) {
-    return Column(children: [Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)), Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11))]);
-  }
-
-  Widget _buildMenuSection(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25)),
-      child: Column(
-        children: [
-          _menuTile(Icons.person_outline_rounded, "تعديل الحساب", () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => EditProfileScreen(userData: _userData)));
-          }),
-          _menuTile(Icons.star_outline_rounded, "تقييماتي", () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const MyReviewsScreen()));
-          }),
-          _menuTile(Icons.lock_outline_rounded, "الأمان والخصوصية", () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityPrivacyScreen()));
-          }),
-          _menuTile(Icons.headset_mic_outlined, "الدعم الفني", () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportScreen()));
-          }),
-        ],
-      ),
+  Widget _statItem(String label, String value, Color iconColor, Color textColor) {
+    return Column(
+      children: [
+        Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: iconColor)), 
+        const SizedBox(height: 4),
+        Text(label, style: TextStyle(color: textColor.withValues(alpha: 0.6), fontSize: 13, fontWeight: FontWeight.w600))
+      ]
     );
   }
 
-  Widget _menuTile(IconData icon, String title, VoidCallback onTap) {
+  Widget _menuTile(IconData icon, String title, Color textColor, Color subTextColor, VoidCallback onTap) {
     return ListTile(
       onTap: onTap,
-      leading: Icon(icon, color: const Color(0xFFE79C24)),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+      leading: Icon(icon, color: textColor),
+      title: Text(title, style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 15)),
+      trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: subTextColor),
     );
   }
 
-  Widget _buildLogoutButton(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(25),
-      child: TextButton.icon(
-        onPressed: () async {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove('auth_token');
-          if (!context.mounted) return;
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-            (route) => false,
-          );
-        },
-        icon: const Icon(Icons.logout, color: Colors.red),
-        label: const Text("تسجيل الخروج", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-      ),
+  Widget _buildDivider(Color cardColor) {
+    return Divider(
+      height: 1, 
+      thickness: 1, 
+      color: cardColor == Colors.white ? Colors.grey[100] : Colors.grey[800],
+      indent: 55, 
+    );
+  }
+
+  void _logout(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    if (!context.mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+      (route) => false,
     );
   }
 }

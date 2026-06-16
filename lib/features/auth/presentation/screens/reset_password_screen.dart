@@ -4,6 +4,9 @@ import 'package:darb/features/auth/presentation/providers/auth_provider.dart';
 import 'package:darb/core/utils/validators.dart';
 import 'package:darb/features/auth/presentation/screens/login_screen.dart'; 
 
+import 'package:darb/core/localization/app_localizations.dart';
+import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
+
 class ResetPasswordScreen extends StatefulWidget {
   final String email;
   final String otp;
@@ -36,36 +39,47 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final settings = Provider.of<SettingsProvider>(context);
+    final loc = AppLocalizations.of(context)!;
+
+    final isDark = settings.isDark;
+    final isAr = settings.locale.languageCode == 'ar';
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
+    final labelColor = isDark ? Colors.grey[300]! : const Color(0xFF374151);
+    final tfFillColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF9FAFB);
+    final hintColor = isDark ? Colors.grey[500]! : Colors.grey[600]!;
+    final align = isAr ? CrossAxisAlignment.end : CrossAxisAlignment.start;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: bgColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 30),
           child: Form(
             key: _formKey,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: align,
               children: [
                 const SizedBox(height: 20),
-                Align(alignment: Alignment.topRight, child: _buildCircleBackButton(context)),
+                Align(alignment: isAr ? Alignment.topRight : Alignment.topLeft, child: _buildCircleBackButton(context, isAr)),
                 const SizedBox(height: 40),
-                const Center(child: Text("إعادة تعيين كلمة المرور", style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Color(0xFF0D1B3E)))),
+                Center(child: Text(loc.translate('reset_password'), style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: textColor))),
                 
                 const SizedBox(height: 30),
-                _buildLabel("رمز التحقق (OTP)"),
-                _buildTextField(_otpController, "أدخل الرمز المرسل", (val) => val!.isEmpty ? "مطلوب" : null, false),
+                _buildLabel(loc.translate('otp_code_label'), labelColor),
+                _buildTextField(_otpController, loc.translate('enter_sent_code'), (val) => val!.isEmpty ? loc.translate('required_field') : null, false, isAr, tfFillColor, textColor, hintColor),
 
                 const SizedBox(height: 20),
-                _buildLabel("كلمة المرور الجديدة"),
-                _buildTextField(_passwordController, "********", Validators.validatePassword, true),
+                _buildLabel(loc.translate('new_password'), labelColor),
+                _buildTextField(_passwordController, "********", Validators.validatePassword, true, isAr, tfFillColor, textColor, hintColor),
                 
                 const SizedBox(height: 20),
-                _buildLabel("تأكيد كلمة المرور"),
+                _buildLabel(loc.translate('confirm_password'), labelColor),
                 _buildTextField(_confirmPasswordController, "********", (value) {
-                  if (value != _passwordController.text) return "كلمات المرور غير متطابقة";
+                  if (value != _passwordController.text) return loc.translate('passwords_do_not_match');
                   return null;
-                }, true),
+                }, true, isAr, tfFillColor, textColor, hintColor),
 
                 const SizedBox(height: 40),
                 authProvider.isLoading 
@@ -82,12 +96,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                           _otpController.text.trim()
                          );
     
-                             // السطر الذهبي هنا بعد الـ await
                       if (!context.mounted) return;
 
                        if (success) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("تم تغيير كلمة المرور بنجاح!"))
+                          SnackBar(content: Text(loc.translate('password_changed_success')))
                           );
        
                              Navigator.pushAndRemoveUntil(
@@ -96,9 +109,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                               (route) => false,
                             );
                         }
-                     }
+                      }
                  },
-                        child: const Text("حفظ وتغيير", style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: Text(loc.translate('save_and_change'), style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
                     ),
               ],
@@ -109,11 +122,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String hint, String? Function(String?) validator, bool isPassword) => TextFormField(
-    controller: controller, textAlign: TextAlign.right, obscureText: isPassword, validator: validator,
-    decoration: InputDecoration(hintText: hint, filled: true, fillColor: const Color(0xFFF9FAFB), border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)),
+  Widget _buildTextField(TextEditingController controller, String hint, String? Function(String?) validator, bool isPassword, bool isAr, Color tfFillColor, Color textColor, Color hintColor) => TextFormField(
+    controller: controller, textAlign: isAr ? TextAlign.right : TextAlign.left, obscureText: isPassword, validator: validator,
+    style: TextStyle(color: textColor),
+    decoration: InputDecoration(hintText: hint, hintStyle: TextStyle(color: hintColor), filled: true, fillColor: tfFillColor, border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)),
   );
 
-  Widget _buildLabel(String text) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF374151))));
-  Widget _buildCircleBackButton(BuildContext context) => GestureDetector(onTap: () => Navigator.pop(context), child: Container(padding: const EdgeInsets.all(10), decoration: const BoxDecoration(color: Color(0xFFE79C24), shape: BoxShape.circle), child: const Icon(Icons.arrow_forward, color: Colors.white, size: 22)));
+  Widget _buildLabel(String text, Color color) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(text, style: TextStyle(fontWeight: FontWeight.bold, color: color)));
+  Widget _buildCircleBackButton(BuildContext context, bool isAr) => GestureDetector(onTap: () => Navigator.pop(context), child: Container(padding: const EdgeInsets.all(10), decoration: const BoxDecoration(color: Color(0xFFE79C24), shape: BoxShape.circle), child: Icon(isAr ? Icons.arrow_forward : Icons.arrow_back, color: Colors.white, size: 22)));
 }

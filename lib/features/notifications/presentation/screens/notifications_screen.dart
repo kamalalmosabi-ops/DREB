@@ -3,6 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:darb/features/notifications/data/models/notification_model.dart';
 import 'package:darb/features/notifications/presentation/providers/notification_provider.dart';
 
+// استيراد الترجمة ومدير الإعدادات
+import 'package:darb/core/localization/app_localizations.dart';
+import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
+
 class NotificationsScreen extends StatefulWidget {
   final String userType;
   const NotificationsScreen({super.key, required this.userType});
@@ -24,24 +28,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
+    final loc = AppLocalizations.of(context)!;
     final notificationProvider = context.watch<NotificationProvider>();
     final notifications = notificationProvider.notifications;
     final filteredNotifications = NotificationModel.getFiltered(notifications, activeFilter);
 
+    final isDark = settings.isDark;
+    final isAr = settings.locale.languageCode == 'ar';
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF6F8FB);
+    final textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
+    final cardColor = isDark ? const Color(0xFF2C2C2E) : Colors.white;
+
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF6F8FB),
+        backgroundColor: bgColor,
         body: Column(
           children: [
-            _buildPremiumHeader(context),
-            _buildFilterTabs(),
+            _buildPremiumHeader(context, loc),
+            _buildFilterTabs(isDark, textColor, loc),
             Expanded(
               child: notificationProvider.isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFE79C24)))
                   : filteredNotifications.isEmpty
-                      ? _buildEmptyState()
-                      : _buildModernList(filteredNotifications),
+                      ? Center(child: Text(loc.translate('no_notifications'), style: TextStyle(color: textColor.withValues(alpha: 0.5))))
+                      : _buildModernList(filteredNotifications, textColor, cardColor, loc, isAr),
             ),
           ],
         ),
@@ -49,7 +61,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildPremiumHeader(BuildContext context) {
+  Widget _buildPremiumHeader(BuildContext context, AppLocalizations loc) {
     double topPadding = MediaQuery.of(context).padding.top;
     return Container(
       padding: EdgeInsets.only(top: topPadding + 20, left: 20, right: 20, bottom: 30),
@@ -61,19 +73,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 22), onPressed: () => Navigator.pop(context)),
-          const Text("مركز التنبيهات", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+          Text(loc.translate('notifications_center'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
           IconButton(
             icon: const Icon(Icons.done_all_rounded, color: Colors.white),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم تحديد جميع الإشعارات كمقروءة")));
-            },
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.translate('mark_all_read')))),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFilterTabs() {
+  Widget _buildFilterTabs(bool isDark, Color textColor, AppLocalizations loc) {
     final tabs = ["الكل", "حجوزات", "تنبيهات إدارية", "المدفوعات"];
     return Container(
       height: 60,
@@ -92,10 +102,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
               padding: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF0D1B3E) : Colors.white,
+                color: isSelected ? const Color(0xFF0D1B3E) : (isDark ? const Color(0xFF2C2C2E) : Colors.white),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Center(child: Text(tab, style: TextStyle(color: isSelected ? Colors.white : Colors.grey[600], fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 13))),
+              child: Center(child: Text(tab, style: TextStyle(color: isSelected ? Colors.white : textColor.withValues(alpha: 0.6), fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 13))),
             ),
           );
         },
@@ -103,22 +113,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildModernList(List<NotificationModel> list) {
+  Widget _buildModernList(List<NotificationModel> list, Color textColor, Color cardColor, AppLocalizations loc, bool isAr) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
       itemCount: list.length,
-      itemBuilder: (context, index) => _buildEnhancedPremiumCard(list[index]),
+      itemBuilder: (context, index) => _buildEnhancedPremiumCard(list[index], textColor, cardColor, loc, isAr),
     );
   }
 
-  Widget _buildEnhancedPremiumCard(NotificationModel noti) {
+  Widget _buildEnhancedPremiumCard(NotificationModel noti, Color textColor, Color cardColor, AppLocalizations loc, bool isAr) {
     Color themeColor = _getThemeColor(noti.category);
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: const Color(0xFF0D1B3E).withValues(alpha: 0.04), blurRadius: 15, offset: const Offset(0, 6))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 15, offset: const Offset(0, 6))],
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -131,7 +141,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 _buildBadge(noti.categoryName, themeColor),
                 Row(
                   children: [
-                    Text(_formatTimestampShort(noti.createdAt), style: TextStyle(color: Colors.grey[400], fontSize: 11)),
+                    Text(_formatTimestampShort(noti.createdAt, loc), style: TextStyle(color: Colors.grey[400], fontSize: 11)),
                     if (!noti.isRead) ...[
                       const SizedBox(width: 8),
                       const CircleAvatar(radius: 3, backgroundColor: Color(0xFFE79C24)),
@@ -148,11 +158,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 const SizedBox(width: 15),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: isAr ? CrossAxisAlignment.start : CrossAxisAlignment.end,
                     children: [
-                      Text(noti.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0D1B3E))),
+                      Text(noti.title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor)),
                       const SizedBox(height: 5),
-                      Text(noti.body, style: TextStyle(color: Colors.grey[700], fontSize: 13, height: 1.5)),
+                      Text(noti.body, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: 13, height: 1.5)),
                     ],
                   ),
                 ),
@@ -166,22 +176,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Widget _buildIconBox(int category, Color color) {
     IconData iconData = Icons.notifications_none_rounded;
-    if (category == 1) {
-    iconData = Icons.directions_bus_filled_rounded;
-  } else if (category == 3) {
-    iconData = Icons.account_balance_wallet_rounded;
-  }
-  
-  return Container(
-    width: 45, 
-    height: 45,
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.1), 
-      borderRadius: BorderRadius.circular(14)
-    ),
-    child: Icon(iconData, color: color, size: 24),
-  );
-}
+    if (category == 1) iconData = Icons.directions_bus_filled_rounded; 
+    else if (category == 3) iconData = Icons.account_balance_wallet_rounded;
+    
+    return Container(
+      width: 45, height: 45,
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
+      child: Icon(iconData, color: color, size: 24),
+    );
   }
 
   Widget _buildBadge(String text, Color color) {
@@ -200,10 +202,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  String _formatTimestampShort(DateTime time) {
+  String _formatTimestampShort(DateTime time, AppLocalizations loc) {
     final diff = DateTime.now().difference(time);
-    if (diff.inMinutes < 60) return "منذ ${diff.inMinutes} دقيقة";
+    if (diff.inMinutes < 60) return "منذ ${diff.inMinutes} ${loc.translate('minute_ago')}";
     return "${time.day}/${time.month}";
   }
-
-  Widget _buildEmptyState() => const Center(child: Text("لا توجد تنبيهات"));
+}

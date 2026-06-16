@@ -1,42 +1,82 @@
 import 'package:flutter/material.dart';
-import 'package:darb/features/home_search/data/models/trip_model.dart';
-import 'package:darb/features/home_search/data/models/trip_api_service.dart';   
+import '../../data/models/trip_model.dart'; // تأكد أن هذا المسار يطابق مجلدك
+import 'package:darb/core/network/dio_client.dart';
 
-class TripProvider with ChangeNotifier {
-  final TripApiService _api = TripApiService();
-  List<Trip> _trips = [];
-  bool _isLoading = false;
-  String _errorMessage = "";
+class TripProvider extends ChangeNotifier {
+  final DioClient _dioClient = DioClient();
+  
+  List<Trip> trips = [];
+  bool isLoading = false;
 
-  List<Trip> get trips => _trips;
-  bool get isLoading => _isLoading;
-  String get errorMessage => _errorMessage;
-
-  Future<void> search(String from, String to, String date) async {
-    // التحقق من البيانات المرسلة لمنع الطلبات الفارغة
-    if (from.isEmpty || to.isEmpty) {
-      debugPrint("تنبيه: حقول المدن فارغة، لن يتم إرسال طلب للسيرفر.");
-      _trips = [];
-      _isLoading = false;
-      notifyListeners();
-      return;
-    }
-
-    _isLoading = true;
-    _errorMessage = "";
-    _trips = []; // تصفية نتائج البحث القديمة فوراً ليظهر المؤشر بسلاسة
+  // دالة لجلب كل الرحلات المتاحة
+  Future<void> fetchAllTrips() async {
+    isLoading = true;
     notifyListeners();
-    
+
     try {
-      debugPrint("جاري إرسال طلب البحث للرحلات من $from إلى $to بتاريخ $date");
-      _trips = await _api.searchTrips(from, to, date);
+      // إرسال القيم صفر كافتراضي لجلب الكل
+      final response = await _dioClient.post(
+        '/Customer/home/search',
+        data: {
+          "fromGovernorateId": 0,
+          "toGovernorateId": 0,
+          "companyId": 0,
+          "periodId": 0,
+          "date": null
+        }
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final resData = response.data;
+        if (resData['success'] == true && resData['data'] != null) {
+          final List<dynamic> tripsData = resData['data'];
+          trips = tripsData.map((json) => Trip.fromJson(json)).toList();
+        }
+      }
     } catch (e) {
-      debugPrint("حدث خطأ أثناء تحديث البيانات في الـ Provider: $e");
-      _errorMessage = e.toString();
-      _trips = []; // تفريغ القائمة عند حدوث خطأ لكسر اللوب اللانهائي للمؤشر
+      debugPrint("خطأ في جلب كل الرحلات: $e");
     } finally {
-      // إغلاق مؤشر التحميل في كل الأحوال (سواء نجح الطلب أو فشل)
-      _isLoading = false;
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // دالة البحث المخصص
+  Future<void> search({
+    required int fromId,
+    required int toId,
+    required int companyId,
+    required int periodId,
+    required String date,
+  }) async {
+    isLoading = true;
+    trips.clear();
+    notifyListeners();
+
+    try {
+      // إرسال البيانات (البودي) كما يتوقعها السيرفر بالضبط
+      final response = await _dioClient.post(
+        '/Customer/home/search',
+        data: {
+          "fromGovernorateId": fromId,
+          "toGovernorateId": toId,
+          "companyId": companyId,
+          "periodId": periodId,
+          "date": date.isEmpty ? null : date // إذا كان التاريخ فارغاً نرسله null
+        }
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final resData = response.data;
+        if (resData['success'] == true && resData['data'] != null) {
+          final List<dynamic> tripsData = resData['data'];
+          trips = tripsData.map((json) => Trip.fromJson(json)).toList();
+        }
+      }
+    } catch (e) {
+      debugPrint("خطأ في البحث عن الرحلات: $e");
+    } finally {
+      isLoading = false;
       notifyListeners();
     }
   }

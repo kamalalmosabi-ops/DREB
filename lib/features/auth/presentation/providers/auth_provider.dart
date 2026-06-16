@@ -14,7 +14,7 @@ class AuthProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  // --- دالة تسجيل الدخول ---
+  // --- دالة تسجيل الدخول (المعدلة والآمنة) ---
   Future<bool> login(String email, String password) async {
     _setLoading(true);
     _clearError();
@@ -25,8 +25,14 @@ class AuthProvider with ChangeNotifier {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        _handleSuccessfulAuth(response.data['data']);
-        return true;
+        // حماية ضد مشكلة نوع البيانات (التأكد من أنها Map وليست String)
+        if (response.data is Map) {
+          var dataObj = response.data['data'];
+          if (dataObj != null) {
+            await _handleSuccessfulAuth(dataObj);
+            return true;
+          }
+        }
       }
       _setLoading(false);
       return false;
@@ -49,7 +55,6 @@ class AuthProvider with ChangeNotifier {
     _setLoading(true);
     _clearError();
     
-    // 1. جهاز التنصت الأول: فحص البيانات قبل إرسالها (لنتأكد من صحة التمرير)
     debugPrint("🚀 [إرسال البيانات] الايميل: $email | الجوال: $phone | الهوية: $nationalId");
 
     try {
@@ -66,12 +71,11 @@ class AuthProvider with ChangeNotifier {
         },
       );
       
-      // 2. جهاز التنصت الثاني: فحص رد السيرفر إذا كان ناجحاً
       debugPrint("✅ [رد السيرفر] الكود: ${response.statusCode} | البيانات: ${response.data}");
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         if (response.data['data'] != null) {
-            _handleSuccessfulAuth(response.data['data']);
+            await _handleSuccessfulAuth(response.data['data']);
         } else {
             _setLoading(false);
         }
@@ -80,21 +84,41 @@ class AuthProvider with ChangeNotifier {
       _setLoading(false);
       return false;
     } catch (e) {
-      // 3. جهاز التنصت الثالث: فحص دقيق للخطأ في حال رفض السيرفر
       debugPrint("❌ [خطأ في السيرفر] التفاصيل: $e");
       _setExceptionError(e);
       return false;
     }
   }
 
-  // دالة مساعدة لتخزين بيانات المستخدم والتوكن
+  // --- دالة معالجة الدخول وحفظ التوكن (المعدلة والآمنة) ---
   Future<void> _handleSuccessfulAuth(dynamic userData) async {
-    _currentUser = UserModel.fromJson(userData);
-    if (_currentUser?.token != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('auth_token', _currentUser!.token!);
-      _dioClient.setToken(_currentUser!.token!);
+    try {
+      String? token;
+
+      // استخراج التوكن بأمان أولاً
+      if (userData is Map) {
+        token = userData['token'];
+      }
+
+      // حفظ التوكن فوراً في DioClient و SharedPreferences
+      if (token != null && token.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', token);
+        _dioClient.setToken(token); 
+        debugPrint("✅ تم التقاط التوكن وحفظه بنجاح!");
+      }
+
+      // محاولة تحويل البيانات إلى UserModel داخل Try-Catch لتجنب الكراش
+      try {
+        _currentUser = UserModel.fromJson(userData);
+      } catch (e) {
+        debugPrint("⚠️ تحذير: UserModel.fromJson لم يجد كل الحقول. الخطأ: $e");
+      }
+
+    } catch (e) {
+      debugPrint("❌ خطأ غير متوقع في معالجة الدخول: $e");
     }
+    
     _setLoading(false);
     notifyListeners();
   }

@@ -6,6 +6,10 @@ import 'register_step1_screen.dart';
 import 'forgot_password_screen.dart';
 import '../../../home_search/presentation/screens/main_screen.dart';
 
+// استيراد الترجمة ومدير الإعدادات للوضع الليلي
+import 'package:darb/core/localization/app_localizations.dart';
+import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -17,7 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isObscure = true; // متغير للتحكم بظهور كلمة المرور
+  bool _isObscure = true; 
 
   @override
   void dispose() {
@@ -29,66 +33,80 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final settings = Provider.of<SettingsProvider>(context);
+    final loc = AppLocalizations.of(context)!;
+
+    // تجهيز الألوان للوضع الليلي
+    final isDark = settings.isDark;
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
+    final subTextColor = isDark ? Colors.grey[400]! : const Color(0xFF6B7280);
+    final tfFillColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF9FAFB);
+
+    // تجهيز المحاذاة حسب اللغة
+    final isAr = settings.locale.languageCode == 'ar';
+    final align = isAr ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final textAlign = isAr ? TextAlign.right : TextAlign.left;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: bgColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 25),
           child: Form(
             key: _formKey,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: align,
               children: [
                 const SizedBox(height: 20),
                 Align(
-                  alignment: Alignment.topRight, 
-                  child: _buildCircleBackButton(context)
+                  alignment: isAr ? Alignment.topRight : Alignment.topLeft, 
+                  child: _buildCircleBackButton(context, isAr)
                 ),
                 
                 const SizedBox(height: 40), 
                 
-                const Text("!مرحباً بعودتك", style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Color(0xFF0D1B3E))),
+                Text(loc.translate('welcome_back'), style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: textColor)),
                 const SizedBox(height: 10),
-                const Text("سجل دخولك لمتابعة حجوزاتك مع درب.", textAlign: TextAlign.right, style: TextStyle(fontSize: 14, color: Color(0xFF6B7280), height: 1.5)),
+                Text(loc.translate('login_subtitle'), textAlign: textAlign, style: TextStyle(fontSize: 14, color: subTextColor, height: 1.5)),
                 
-                // هنا أضفنا مسافة أكبر بين الوصف وأول ليبل
                 const SizedBox(height: 40), 
                 
-                const Text("البريد الإلكتروني", style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+                Text(loc.translate('email'), style: TextStyle(fontWeight: FontWeight.w600, color: textColor)),
                 const SizedBox(height: 8),
                 
-                // حقل الإيميل (بدون أيقونة)
                 TextFormField(
                   controller: _emailController,
-                  textAlign: TextAlign.right,
+                  textAlign: textAlign,
                   validator: Validators.validateEmail,
+                  style: TextStyle(color: textColor),
                   decoration: InputDecoration(
                     hintText: "example@email.com",
+                    hintStyle: TextStyle(color: subTextColor),
                     filled: true,
-                    fillColor: const Color(0xFFF9FAFB),
+                    fillColor: tfFillColor,
                     contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 15),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                   ),
                 ),
                 
                 const SizedBox(height: 25),
-                const Text("كلمة المرور", style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+                Text(loc.translate('password'), style: TextStyle(fontWeight: FontWeight.w600, color: textColor)),
                 const SizedBox(height: 8),
                 
-                // حقل كلمة المرور (مع الأيقونة)
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: _isObscure, // نربط الإخفاء بالمتغير
-                  textAlign: TextAlign.right,
+                  obscureText: _isObscure,
+                  textAlign: textAlign,
                   validator: Validators.validatePassword,
+                  style: TextStyle(color: textColor),
                   decoration: InputDecoration(
                     hintText: "********",
+                    hintStyle: TextStyle(color: subTextColor),
                     filled: true,
-                    fillColor: const Color(0xFFF9FAFB),
+                    fillColor: tfFillColor,
                     contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 15),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                    // إضافة أيقونة العين هنا
                     prefixIcon: IconButton(
                       icon: Icon(
                         _isObscure ? Icons.visibility_off : Icons.visibility,
@@ -96,7 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       onPressed: () {
                         setState(() {
-                          _isObscure = !_isObscure; // عكس الحالة عند الضغط
+                          _isObscure = !_isObscure;
                         });
                       },
                     ),
@@ -104,10 +122,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 
                 Align(
-                  alignment: Alignment.centerLeft, 
+                  alignment: isAr ? Alignment.centerLeft : Alignment.centerRight, 
                   child: TextButton(
                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())), 
-                    child: const Text("نسيت كلمة المرور؟", style: TextStyle(color: Color(0xFFE79C24), fontWeight: FontWeight.bold))
+                    child: Text(loc.translate('forgot_password_q'), style: const TextStyle(color: Color(0xFFE79C24), fontWeight: FontWeight.bold))
                   )
                 ),
                 
@@ -125,19 +143,17 @@ class _LoginScreenState extends State<LoginScreen> {
                               _passwordController.text.trim(),
                             );
 
-                            // السطر الذهبي المستقل: إذا أغلقت الشاشة، أوقف تنفيذ الدالة هنا!
                             if (!context.mounted) return;
 
-                            // الآن نكتب الشروط براحة تامة وبدون الحاجة لكلمة mounted
                             if (success) {
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MainScreen()), // توجه للحاوية التي تحمل النافبار
-                                (route) => false, // مسح كل التاريخ السابق (عشان المستخدم ما يقدر يرجع لصفحة اللوجن)
+                                MaterialPageRoute(builder: (_) => const MainScreen()),
+                                (route) => false, 
                               );
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("بيانات الدخول غير صحيحة")),
+                                SnackBar(content: Text(loc.translate('invalid_credentials'))),
                               );
                             }
                           }
@@ -146,19 +162,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           backgroundColor: const Color(0xFFE79C24), 
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
                         ), 
-                        child: const Text("تسجيل الدخول", style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))
+                        child: Text(loc.translate('login'), style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))
                       )
                     ),
                 
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center, 
+                  textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
                   children: [
+                    Text(loc.translate('dont_have_account'), style: TextStyle(color: textColor)),
                     GestureDetector(
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterStep1Screen())), 
-                      child: const Text("تسجيل جديد", style: TextStyle(color: Color(0xFFE79C24), fontWeight: FontWeight.bold))
+                      child: Text(loc.translate('new_register'), style: const TextStyle(color: Color(0xFFE79C24), fontWeight: FontWeight.bold))
                     ), 
-                    const Text("  ليس لديك حساب؟ ")
                   ]
                 ),
               ],
@@ -169,12 +186,13 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildCircleBackButton(BuildContext context) => GestureDetector(
+  Widget _buildCircleBackButton(BuildContext context, bool isAr) => GestureDetector(
     onTap: () => Navigator.pop(context),
     child: Container(
       padding: const EdgeInsets.all(8), 
       decoration: const BoxDecoration(color: Color(0xFFE79C24), shape: BoxShape.circle), 
-      child: const Icon(Icons.arrow_forward, color: Colors.white, size: 20)
+      // عكس السهم للإنجليزي
+      child: Icon(isAr ? Icons.arrow_forward : Icons.arrow_back, color: Colors.white, size: 20)
     )
   );
 }
