@@ -47,7 +47,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             child: Column(
               children: [
                 const SizedBox(height: 20),
-                Align(alignment: isAr ? Alignment.topRight : Alignment.topLeft, child: _buildCircleBackButton(context, isAr)),
+                // ✅ تعديل المحاذاة هنا ليكون السهم في اليسار باللغة العربية (Alignment.topLeft) وفي اليمين بالإنجليزية (Alignment.topRight)
+                Align(
+                    alignment: isAr ? Alignment.topLeft : Alignment.topRight, 
+                    child: _buildCircleBackButton(context, isAr)
+                ),
                 const SizedBox(height: 60),
                 Text(loc.translate('forgot_password_title'), style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: textColor)),
                 const SizedBox(height: 50),
@@ -94,5 +98,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Widget _buildLabel(String text, bool isAr, Color color) => Align(alignment: isAr ? Alignment.centerRight : Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(text, style: TextStyle(fontWeight: FontWeight.bold, color: color))));
   Widget _buildMainButton(String text, VoidCallback onTap) => SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: onTap, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE79C24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))), child: Text(text, style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))));
-  Widget _buildCircleBackButton(BuildContext context, bool isAr) => GestureDetector(onTap: () => Navigator.pop(context), child: Container(padding: const EdgeInsets.all(10), decoration: const BoxDecoration(color: Color(0xFFE79C24), shape: BoxShape.circle), child: Icon(isAr ? Icons.arrow_forward : Icons.arrow_back, color: Colors.white, size: 22)));
+  
+  // ✅ تم ضبط اتجاه السهم الداخلي ليتناسب مع مكانه الجديد باليسار
+  Widget _buildCircleBackButton(BuildContext context, bool isAr) => GestureDetector(
+      onTap: () => Navigator.pop(context), 
+      child: Container(
+          padding: const EdgeInsets.all(10), 
+          decoration: const BoxDecoration(color: Color(0xFFE79C24), shape: BoxShape.circle), 
+          child: Icon(isAr ? Icons.arrow_forward : Icons.arrow_back, color: Colors.white, size: 22)
+      )
+  );
 }

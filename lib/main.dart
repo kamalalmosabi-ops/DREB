@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-// استيراد الـ SettingsProvider
-import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
+// استيراد الخدمة الجديدة
+import 'package:darb/core/services/notification_service.dart'; 
 
-// استيرادات الميزات
+import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
 import 'package:darb/features/onboarding/presentation/screens/splash_screen.dart';
 import 'package:darb/features/auth/presentation/providers/auth_provider.dart';
 import 'package:darb/features/home_search/presentation/providers/home_provider.dart';
 import 'package:darb/features/notifications/presentation/providers/notification_provider.dart';
-// تم إضافة الـ BookingProvider هنا
 import 'package:darb/features/bookings/presentation/providers/booking_provider.dart'; 
 import 'features/home_search/presentation/providers/trip_provider.dart';
 import 'features/home_search/presentation/providers/company_provider.dart';
@@ -25,6 +24,10 @@ void main() async {
   try {
     await Firebase.initializeApp();
     debugPrint("تم الاتصال بسيرفرات الفايربيس بنجاح !");
+    
+    // تفعيل خدمة الإشعارات فوراً بعد إعداد الفايربيس
+    await NotificationService().initialize();
+    
   } catch (e) {
     debugPrint("حدث خطأ أثناء الاتصال بالفايربيس: $e");
   }
@@ -39,7 +42,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => TripProvider()),
         ChangeNotifierProvider(create: (_) => CompanyProvider()),
         ChangeNotifierProvider(create: (_) => CompanyDetailsProvider()),
-        ChangeNotifierProvider(create: (_) => BookingProvider()), // <-- هذا هو السطر المهم
+        ChangeNotifierProvider(create: (_) => BookingProvider()), 
       ],
       child: const DarbApp(),
     ),

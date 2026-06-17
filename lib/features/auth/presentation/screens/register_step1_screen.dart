@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:darb/core/utils/validators.dart'; 
 import 'package:darb/features/auth/presentation/screens/register_step2_screen.dart';
-
-// استيراد الترجمة ومدير الإعدادات للوضع الليلي
 import 'package:darb/core/localization/app_localizations.dart';
 import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
 
@@ -23,11 +22,18 @@ class _RegisterStep1ScreenState extends State<RegisterStep1Screen> {
   bool _isObscureConfirm = true;
 
   @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
     final loc = AppLocalizations.of(context)!;
 
-    // الألوان
     final isDark = settings.isDark;
     final bgColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
     final textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
@@ -35,76 +41,76 @@ class _RegisterStep1ScreenState extends State<RegisterStep1Screen> {
     final tfFillColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF9FAFB);
     final hintColor = isDark ? Colors.grey[500]! : Colors.grey[600]!;
 
-    // المحاذاة
-    final isAr = settings.locale.languageCode == 'ar';
-    final align = isAr ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-
     return Scaffold(
       backgroundColor: bgColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 30),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: align,
-              children: [
-                const SizedBox(height: 20),
-                Align(
-                  alignment: isAr ? Alignment.topRight : Alignment.topLeft, 
-                  child: _buildCircleBackButton(context, isAr)
-                ),
-                const SizedBox(height: 20),
-                Center(child: Text(loc.translate('create_new_account'), style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: textColor))),
-                const SizedBox(height: 15),
-                Center(child: _buildSteps(1)), 
-                const SizedBox(height: 30),
-                
-                _buildLabel(loc.translate('email'), labelColor),
-                _buildTextField(hint: "example@gmail.com", controller: _emailController, isEmail: true, isAr: isAr, tfFillColor: tfFillColor, textColor: textColor, hintColor: hintColor, loc: loc),
-                
-                _buildLabel(loc.translate('password'), labelColor),
-                _buildTextField(
-                  hint: "********", 
-                  controller: _passwordController, 
-                  isPassword: true,
-                  isObscure: _isObscurePassword, 
-                  isAr: isAr, tfFillColor: tfFillColor, textColor: textColor, hintColor: hintColor, loc: loc,
-                  onToggleVisibility: () {
-                    setState(() {
-                      _isObscurePassword = !_isObscurePassword; 
-                    });
-                  }
-                ),
-                
-                _buildLabel(loc.translate('confirm_password'), labelColor),
-                _buildTextField(
-                  hint: "********", 
-                  controller: _confirmController, 
-                  isPassword: true,
-                  isObscure: _isObscureConfirm, 
-                  isAr: isAr, tfFillColor: tfFillColor, textColor: textColor, hintColor: hintColor, loc: loc,
-                  onToggleVisibility: () {
-                    setState(() {
-                      _isObscureConfirm = !_isObscureConfirm; 
-                    });
-                  }
-                ),
-                
-                const SizedBox(height: 40),
-                _buildMainButton(loc.translate('next'), () {
-                  if (_formKey.currentState!.validate()) {
-                    if (_passwordController.text != _confirmController.text) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.translate('passwords_do_not_match'))));
-                      return;
+        child: Directionality(
+          textDirection: TextDirection.rtl, // فرض اتجاه اليمين لليسار
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 30),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  Align(
+                    alignment: Alignment.topRight, 
+                    child: _buildCircleBackButton(context)
+                  ),
+                  const SizedBox(height: 20),
+                  Center(child: Text(loc.translate('create_new_account'), style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: textColor))),
+                  const SizedBox(height: 15),
+                  Center(child: _buildSteps(1)), 
+                  const SizedBox(height: 30),
+                  
+                  _buildLabel(loc.translate('email'), labelColor),
+                  _buildTextField(
+                    hint: "example@gmail.com", 
+                    controller: _emailController, 
+                    tfFillColor: tfFillColor, 
+                    textColor: textColor, 
+                    hintColor: hintColor, 
+                    validator: Validators.validateEmail, // الفالديشن الذكي للبريد
+                  ),
+                  
+                  _buildLabel(loc.translate('password'), labelColor),
+                  _buildTextField(
+                    hint: "********", 
+                    controller: _passwordController, 
+                    isPassword: true,
+                    isObscure: _isObscurePassword, 
+                    tfFillColor: tfFillColor, textColor: textColor, hintColor: hintColor,
+                    validator: Validators.validatePassword, // الفالديشن الذكي لقوة كلمة المرور
+                    onToggleVisibility: () => setState(() => _isObscurePassword = !_isObscurePassword)
+                  ),
+                  
+                  _buildLabel(loc.translate('confirm_password'), labelColor),
+                  _buildTextField(
+                    hint: "********", 
+                    controller: _confirmController, 
+                    isPassword: true,
+                    isObscure: _isObscureConfirm, 
+                    tfFillColor: tfFillColor, textColor: textColor, hintColor: hintColor,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'تأكيد كلمة المرور مطلوب واجبي.';
+                      if (v != _passwordController.text) return 'كلمتا المرور غير متطابقتين. المطلوب: إعادة كتابتها بدقة.';
+                      return null;
+                    },
+                    onToggleVisibility: () => setState(() => _isObscureConfirm = !_isObscureConfirm)
+                  ),
+                  
+                  const SizedBox(height: 40),
+                  _buildMainButton(loc.translate('next'), () {
+                    if (_formKey.currentState!.validate()) {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterStep2Screen(
+                        email: _emailController.text.trim(),
+                        password: _passwordController.text.trim(),
+                      )));
                     }
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterStep2Screen(
-                      email: _emailController.text.trim(),
-                      password: _passwordController.text.trim(),
-                    )));
-                  }
-                }),
-              ],
+                  }),
+                ],
+              ),
             ),
           ),
         ),
@@ -118,32 +124,29 @@ class _RegisterStep1ScreenState extends State<RegisterStep1Screen> {
     required String hint, 
     required TextEditingController controller, 
     bool isPassword = false, 
-    bool isEmail = false,
     bool? isObscure,
     VoidCallback? onToggleVisibility,
-    required bool isAr,
     required Color tfFillColor,
     required Color textColor,
     required Color hintColor,
-    required AppLocalizations loc,
+    required String? Function(String?) validator,
   }) => TextFormField(
     controller: controller, 
     obscureText: isObscure ?? isPassword, 
-    textAlign: isAr ? TextAlign.right : TextAlign.left,
+    textAlign: TextAlign.right,
     style: TextStyle(color: textColor),
-    validator: (v) => v == null || v.isEmpty ? loc.translate('required_field') : null,
+    validator: validator,
     decoration: InputDecoration(
       hintText: hint, 
       hintStyle: TextStyle(color: hintColor),
       filled: true, 
       fillColor: tfFillColor, 
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-      prefixIcon: isPassword 
+      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: const BorderSide(color: Colors.red, width: 1)),
+      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: const BorderSide(color: Colors.red, width: 1.5)),
+      suffixIcon: isPassword 
           ? IconButton(
-              icon: Icon(
-                (isObscure ?? true) ? Icons.visibility_off : Icons.visibility,
-                color: Colors.grey,
-              ),
+              icon: Icon((isObscure ?? true) ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
               onPressed: onToggleVisibility,
             )
           : null,
@@ -160,12 +163,12 @@ class _RegisterStep1ScreenState extends State<RegisterStep1Screen> {
   
   Widget _buildMainButton(String text, VoidCallback onTap) => SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: onTap, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE79C24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))), child: Text(text, style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))));
   
-  Widget _buildCircleBackButton(BuildContext context, bool isAr) => GestureDetector(
+  Widget _buildCircleBackButton(BuildContext context) => GestureDetector(
     onTap: () => Navigator.pop(context), 
     child: Container(
       padding: const EdgeInsets.all(8), 
       decoration: const BoxDecoration(color: Color(0xFFE79C24), shape: BoxShape.circle), 
-      child: Icon(isAr ? Icons.arrow_forward : Icons.arrow_back, color: Colors.white)
+      child: const Icon(Icons.arrow_forward, color: Colors.white)
     )
   );
 }

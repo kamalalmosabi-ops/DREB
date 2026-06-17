@@ -29,12 +29,15 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   Future<void> _initData() async {
     setState(() => _isLoading = true);
     _statuses = await _service.getBookingStatuses();
+<<<<<<< HEAD
     
     // إذا كانت القائمة غير فارغة، نختار أول حالة (غالباً 1)
     if (_statuses.isNotEmpty) {
       _selectedStatusId = _statuses.first['id'] ?? 1;
     }
     
+=======
+>>>>>>> 77a6c78c2d54820020d9c6fb3df0a9d42456927e
     await _fetchBookings(_selectedStatusId);
     setState(() => _isLoading = false);
   }
@@ -80,7 +83,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
         backgroundColor: bgColor,
         body: Column(
           children: [
-            _buildModernHeader(textColor, loc),
+            _buildModernHeader(textColor, loc, isAr), // ✅ سيقوم بفحص حالة السهم تلقائياً الآن
             _buildHorizontalFilterBar(textColor, isDark, isAr),
             Expanded(
               child: _isLoading
@@ -99,17 +102,50 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     );
   }
 
-  Widget _buildModernHeader(Color textColor, AppLocalizations loc) {
+  // ✅ تعديل الهيدر ليعرض السهم فقط عند الحاجة ويخفيه داخل الـ Navbar
+  Widget _buildModernHeader(Color textColor, AppLocalizations loc, bool isAr) {
+    // التحقق الفوري: هل هناك شاشة خلفنا يمكن الرجوع إليها؟
+    final bool canPop = ModalRoute.of(context)?.canPop ?? false;
+
     return Container(
-      padding: const EdgeInsets.only(top: 50, bottom: 25, left: 15, right: 15),
+      padding: const EdgeInsets.only(top: 40, bottom: 20),
       decoration: const BoxDecoration(
         color: Color(0xFFE79C24),
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
       ),
-      child: Center(
-        child: Text(
-          loc.translate('my_bookings'), 
-          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)
+      child: SafeArea(
+        bottom: false,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // يظهر زر السهم فقط إذا جاء المستخدم من شاشة أخرى (مثل عرض الكل بالرئيسية)
+            if (canPop)
+              Positioned(
+                right: isAr ? 15 : null,
+                left: isAr ? null : 15,
+                child: IconButton(
+                  icon: Icon(
+                    isAr ? Icons.arrow_back_ios_new_rounded : Icons.arrow_forward_ios_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+            // عنوان الصفحة ثابت بالمنتصف دائماً
+            Center(
+              child: Text(
+                loc.translate('my_bookings'), 
+                style: const TextStyle(
+                  color: Colors.white, 
+                  fontSize: 20, 
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -175,6 +211,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                       child: Text(trip['companyName'] ?? loc.translate('unknown_company'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor), overflow: TextOverflow.ellipsis),
                     ),
                     const SizedBox(width: 8),
+<<<<<<< HEAD
                     
                     // 🎯 السحر هنا: إذا كانت الحالة "مؤكد" (id = 2)، نعرض زر التذكرة الأخضر
                     if (_selectedStatusId == 2)
@@ -196,6 +233,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                       )
                     else
                       _statusChip(currentStatusName, _selectedStatusId), // وإلا نعرض حالة الحجز العادية
+=======
+                    _statusChip("#${trip['bookingId'] ?? '---'}"), 
+>>>>>>> 77a6c78c2d54820020d9c6fb3df0a9d42456927e
                   ],
                 ),
                 const Divider(height: 30, color: Colors.grey),
@@ -267,7 +307,11 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 }
 
 // ============================================================================
+<<<<<<< HEAD
 // شاشة تفاصيل الحجز (التفاصيل العادية)
+=======
+// شاشة تفاصيل الحجز
+>>>>>>> 77a6c78c2d54820020d9c6fb3df0a9d42456927e
 // ============================================================================
 class BookingDetailsScreen extends StatelessWidget {
   final Map<String, dynamic> bookingData;

@@ -43,7 +43,7 @@ class _CompaniesScreenState extends State<CompaniesScreen> {
         backgroundColor: bgColor,
         body: Column(
           children: [
-            _buildStandardHeader(context, primaryColor, loc),
+            _buildStandardHeader(context, primaryColor, loc, isAr), // ✅ تم تمرير اتجاه اللغة للفحص
             Expanded(
               child: Consumer<CompanyProvider>(
                 builder: (context, provider, child) {
@@ -83,24 +83,50 @@ class _CompaniesScreenState extends State<CompaniesScreen> {
     );
   }
 
-  Widget _buildStandardHeader(BuildContext context, Color primaryColor, AppLocalizations loc) {
+  // ✅ تعديل الهيدر ليفحص إمكانية الرجوع ويظهر السهم فقط عند الدخول من الصفحة الرئيسية
+  Widget _buildStandardHeader(BuildContext context, Color primaryColor, AppLocalizations loc, bool isAr) {
+    // التحقق التلقائي: هل الشاشة مفتوحة فوق شاشة أخرى ويمكن الرجوع؟
+    final bool canPop = ModalRoute.of(context)?.canPop ?? false;
+
     return Container(
-      height: 125, 
+      height: 135, // تم تعديل الارتفاع قليلاً ليعطي مساحة مريحة للـ Stack والـ SafeArea
       width: double.infinity,
       decoration: BoxDecoration( 
         color: primaryColor,
         borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(35), bottomRight: Radius.circular(35)),
       ),
       child: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(loc.translate('transport_companies'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 2),
-              Text(loc.translate('choose_travel_partner'), style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12)),
-            ],
-          ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // يظهر زر السهم فقط إذا جاء المستخدم من شاشة "عرض المزيد" في الصفحة الرئيسية
+            if (canPop)
+              Positioned(
+                right: isAr ? 15 : null,
+                left: isAr ? null : 15,
+                child: IconButton(
+                  icon: Icon(
+                    isAr ? Icons.arrow_back_ios_new_rounded : Icons.arrow_forward_ios_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context); // العودة الآمنة للصفحة الرئيسية
+                  },
+                ),
+              ),
+            // نصوص الهيدر تظل متمردة ومستقرة في المنتصف دائماً
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(loc.translate('transport_companies'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 2),
+                  Text(loc.translate('choose_travel_partner'), style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
