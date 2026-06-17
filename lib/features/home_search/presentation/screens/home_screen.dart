@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart'; //  للوصول لاسم المستخدم والتوكن
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'search_results.dart';
-import 'package:darb/features/notifications/presentation/screens/notifications_screen.dart';  
-import 'package:darb/features/bookings/presentation/screens/my_bookings_screen.dart';  
-import 'companies_screen.dart'; 
-import 'all_trips_screen.dart'; 
-import 'package:darb/features/home_search/presentation/providers/home_provider.dart';  
+import 'package:darb/features/notifications/presentation/screens/notifications_screen.dart';
+import 'package:darb/features/bookings/presentation/screens/my_bookings_screen.dart';
+import 'companies_screen.dart';
+import 'all_trips_screen.dart';
+import 'package:darb/features/home_search/presentation/providers/home_provider.dart';
 
-//  استدعاء الخدمات لجلب الرحلات وصور الشركات
 import 'package:darb/features/bookings/data/models/booking_service.dart';
-import 'package:darb/core/network/dio_client.dart'; 
+import 'package:darb/core/network/dio_client.dart';
 
 import 'package:darb/core/localization/app_localizations.dart';
 import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
@@ -24,9 +23,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  //  متغيرات البيانات الديناميكية
+  // هنا الاسم سيبدأ افتراضياً بـ "يا صديقي" حتى يتم جلبه من السيرفر/الذاكرة
   String userName = "يا صديقي";
-  String userToken = ""; //  متغير لحفظ التوكن وتمريره لشاشات التطبيق 
+  String userToken = "";
   Map<String, dynamic>? upcomingTrip;
   List<dynamic> companyAvatars = [];
   bool isExtraLoading = true;
@@ -36,30 +35,32 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<HomeProvider>(context, listen: false).fetchHomeData();
-      _loadExtraDynamicData(); // ✅ جلب البيانات الديناميكية
+      _loadExtraDynamicData();
     });
   }
 
-  //  دالة لجلب (اسم المستخدم + التوكن + الرحلة القادمة + صور الشركات)
+  // الدالة المعدلة لجلب الاسم الحقيقي
   Future<void> _loadExtraDynamicData() async {
     try {
-      // 1. جلب اسم المستخدم والتوكن من الشيرد بريفرنسز
       final prefs = await SharedPreferences.getInstance();
+      
+      // جلب الاسم من الذاكرة المحلية (التي تم تحديثها عند تسجيل الدخول)
       String? savedName = prefs.getString('userName') ?? prefs.getString('fullName') ?? prefs.getString('name');
       String? email = prefs.getString('email');
-      
-      // جلب التوكن المخزن في كاش التطبيق لكي نمرره لشاشة الإشعارات
-      userToken = prefs.getString('token') ?? prefs.getString('accessToken') ?? '';
       
       if (savedName == null && email != null) {
         savedName = email.split('@').first;
       }
       
+      // تحديث الحالة ليتغير النص في الواجهة فوراً
       if (savedName != null && savedName.isNotEmpty) {
-        userName = savedName;
+        setState(() {
+          userName = savedName!;
+        });
       }
 
-      // 2. جلب الرحلة القادمة
+      userToken = prefs.getString('token') ?? prefs.getString('accessToken') ?? '';
+      
       final bookingService = BookingService();
       var trips = await bookingService.getBookingsByStatus(1);
       if (trips.isEmpty) {
@@ -69,7 +70,6 @@ class _HomeScreenState extends State<HomeScreen> {
         upcomingTrip = trips.first;
       }
 
-      // 3. جلب بيانات الشركات مع الصور الحقيقية من السيرفر
       final dio = DioClient();
       final res = await dio.get('/Customer/home/companies/avatar');
       if (res.statusCode == 200 && res.data != null) {
@@ -114,19 +114,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final loc = AppLocalizations.of(context)!;
     
     final isDark = settings.isDark;
-    const isAr = true; 
+    const isAr = true;
     
     final bgColor = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF8F9FD);
     final textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
 
     return Directionality(
-      textDirection: TextDirection.rtl, // ✅ الواجهة كاملة من اليمين لليسار (RTL)
+      textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: bgColor,
         body: Consumer<HomeProvider>(
           builder: (context, homeProvider, child) {
             final governorates = homeProvider.searchData?.governorates ?? [];
-            final companiesList = homeProvider.searchData?.companies ?? []; 
+            final companiesList = homeProvider.searchData?.companies ?? [];
             final times = homeProvider.searchData?.periods ?? [];
 
             return Stack(
@@ -142,14 +142,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const MyBookingsScreen()));
                       }),
                       
-                      _buildEnhancedTripCard(isDark, loc, isAr), 
+                      _buildEnhancedTripCard(isDark, loc, isAr),
                       const SizedBox(height: 25),
                       
                       _buildSectionTitle(loc.translate('transport_companies'), textColor, loc, () {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const CompaniesScreen()));
                       }),
                       
-                      _buildCompaniesList(isDark), 
+                      _buildCompaniesList(isDark),
                       const SizedBox(height: 30),
                     ],
                   ),
@@ -212,6 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // هنا يظهر الاسم المحدث
                   Text("أهلاً بك، $userName 👋", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                   Text(loc.translate('where_to_go_today'), style: const TextStyle(fontSize: 12, color: Colors.white70)),
                 ],
@@ -226,13 +227,12 @@ class _HomeScreenState extends State<HomeScreen> {
             child: IconButton(
               icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
               onPressed: () {
-                // ✅ التصحيح هنا: تم وضع الـ token داخل أقواس الـ NotificationsScreen بشكل صحيح ومباشر لمنع الخطأ
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => NotificationsScreen(
                       userType: "passenger",
-                      token: userToken, // 👈 هنا تم إصلاح الخطأ وتمرير التوكن الإجباري المطلوب
+                      token: userToken,
                     ),
                   ),
                 );
@@ -295,7 +295,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       company: provider.selectedCompany ?? '',
                       travelDate: provider.selectedDate,
                       timePeriod: provider.selectedTime ?? '',
-                      fromCityId: provider.selectedFromId, 
+                      fromCityId: provider.selectedFromId,
                       toCityId: provider.selectedToId,
                       companyId: provider.selectedCompanyId,
                       periodId: provider.selectedPeriodId,
@@ -309,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 elevation: 0,
               ),
               child: Text(
-                loc.translate('search_trips'), 
+                loc.translate('search_trips'),
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ),
@@ -351,7 +351,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFFE79C24), size: 16), 
+          Icon(icon, color: const Color(0xFFE79C24), size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Directionality(
@@ -370,9 +370,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   items: items.map((String value) => DropdownMenuItem(
                     value: value,
-                    alignment: Alignment.centerRight, 
+                    alignment: Alignment.centerRight,
                     child: Text(
-                      value, 
+                      value,
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -403,11 +403,11 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          Icon(icon, color: const Color(0xFFE79C24), size: 16), 
+          Icon(icon, color: const Color(0xFFE79C24), size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start, 
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(label, style: TextStyle(fontSize: 11, color: labelColor)),
@@ -574,10 +574,10 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)), 
+          Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
           GestureDetector(
             onTap: onTap,
-            child: Text(loc.translate('view_all'), style: const TextStyle(fontSize: 12, color: Color(0xFFE79C24), fontWeight: FontWeight.bold)), 
+            child: Text(loc.translate('view_all'), style: const TextStyle(fontSize: 12, color: Color(0xFFE79C24), fontWeight: FontWeight.bold)),
           ),
         ],
       ),

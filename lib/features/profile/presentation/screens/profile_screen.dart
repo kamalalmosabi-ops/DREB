@@ -10,8 +10,7 @@ import '../../../settings/presentation/providers/settings_provider.dart';
 // استيراد قاموس الترجمة
 import '../../../../core/localization/app_localizations.dart';
 
-import 'edit_profile_screen.dart';
-import 'my_reviews_screen.dart';
+import 'account_data_screen.dart';
 import 'security_privacy_screen.dart';
 import 'support_screen.dart';
 
@@ -30,6 +29,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _notificationsEnabled = true; 
 
   final String _baseUrl = "https://server-darb.runasp.net";
+
+  // دالة ذكية لجلب اسم المستخدم الحقيقي بجميع الاحتمالات من السيرفر
+  String get _getUserName {
+    if (_userData == null) return "User Name";
+    // إذا كانت البيانات داخل كائن فرعي اسمه data أو result
+    final data = _userData!['data'] ?? _userData!['result'] ?? _userData!;
+    return data['name']?.toString() ?? 
+           data['Name']?.toString() ?? 
+           data['fullName']?.toString() ?? 
+           data['FullName']?.toString() ?? 
+           data['userName']?.toString() ?? 
+           "User Name";
+  }
+
+  // دالة ذكية لجلب البريد الإلكتروني   
+  String get _getUserEmail {
+    if (_userData == null) return "example@email.com";
+    final data = _userData!['data'] ?? _userData!['result'] ?? _userData!;
+    return data['email']?.toString() ?? 
+           data['Email']?.toString() ?? 
+           "example@email.com";
+  }
+
+  // دالة ذكية لجلب عدد الرحلات  
+  String get _getTripsCount {
+    if (_userData == null) return "0";
+    final data = _userData!['data'] ?? _userData!['result'] ?? _userData!;
+    return data['tripsCount']?.toString() ?? 
+           data['TripsCount']?.toString() ?? 
+           data['trips']?.toString() ?? 
+           data['Trips']?.toString() ?? 
+           "0";
+  }
+
+  // دالة ذكية لجلب النقاط  
+  String get _getPointsCount {
+    if (_userData == null) return "0";
+    final data = _userData!['data'] ?? _userData!['result'] ?? _userData!;
+    return data['points']?.toString() ?? 
+           data['Points']?.toString() ?? 
+           data['pointsCount']?.toString() ?? 
+           data['PointsCount']?.toString() ?? 
+           "0";
+  }
 
   @override
   void initState() {
@@ -125,12 +168,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20)),
                                 child: Column(
                                   children: [
-                                    _menuTile(Icons.person_outline_rounded, localizations?.translate('edit_profile') ?? "تعديل الحساب", textColor, subTextColor, () {
+                                    // تم تعديل الاسم هنا ليصبح باللغة العربية مباشرة وبشكل ثابت
+                                    _menuTile(Icons.person_outline_rounded, "بيانات الحساب", textColor, subTextColor, () {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => EditProfileScreen(userData: _userData)));
-                                    }),
-                                    _buildDivider(cardColor),
-                                    _menuTile(Icons.star_outline_rounded, localizations?.translate('my_reviews') ?? "تقييماتي", textColor, subTextColor, () {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const MyReviewsScreen()));
                                     }),
                                     _buildDivider(cardColor),
                                     _menuTile(Icons.lock_outline_rounded, localizations?.translate('security_privacy') ?? "الأمان والخصوصية", textColor, subTextColor, () {
@@ -242,11 +282,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 15),
           Text(
-            _userData?['name'] ?? "User Name", 
+            _getUserName, 
             style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)
           ),
           Text(
-            _userData?['email'] ?? "example@email.com", 
+            _getUserEmail, 
             style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14)
           ),
         ],
@@ -272,9 +312,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _statItem("الرحلات", "0", Colors.blue, textColor),
+          _statItem("الرحلات", _getTripsCount, Colors.blue, textColor), 
           Container(height: 40, width: 1, color: Colors.grey.withValues(alpha: 0.3)),
-          _statItem("النقاط", "0", const Color(0xFFE79C24), textColor),
+          _statItem("النقاط", _getPointsCount, const Color(0xFFE79C24), textColor), 
         ],
       ),
     );
