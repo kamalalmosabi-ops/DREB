@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:darb/features/bookings/data/models/booking_service.dart'; 
-
-// استيراد الترجمة ومدير الإعدادات
 import 'package:darb/core/localization/app_localizations.dart';
 import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'dart:ui' as ui show TextDirection;
 
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key});
@@ -18,7 +18,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   List<dynamic> _statuses = []; 
   List<dynamic> _bookings = []; 
   bool _isLoading = true;
-  int _selectedStatusId = 0; 
+  int _selectedStatusId = 1; // جعلنا الافتراضي 1 (في انتظار التأكيد) بدلاً من 0
 
   @override
   void initState() {
@@ -29,20 +29,35 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   Future<void> _initData() async {
     setState(() => _isLoading = true);
     _statuses = await _service.getBookingStatuses();
-    // جلب الحجوزات للحالة رقم 1 (أو حسب ما تختاره)
+    
+    // إذا كانت القائمة غير فارغة، نختار أول حالة (غالباً 1)
+    if (_statuses.isNotEmpty) {
+      _selectedStatusId = _statuses.first['id'] ?? 1;
+    }
+    
     await _fetchBookings(_selectedStatusId);
     setState(() => _isLoading = false);
   }
 
   Future<void> _fetchBookings(int statusId) async {
     setState(() => _isLoading = true);
-    final data = await _service.getBookingsByStatus(statusId);
-    if (mounted) {
-      setState(() {
-        _bookings = data;
-        _selectedStatusId = statusId;
-        _isLoading = false;
-      });
+    try {
+      final data = await _service.getBookingsByStatus(statusId);
+      if (mounted) {
+        setState(() {
+          _bookings = data;
+          _selectedStatusId = statusId;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _bookings = [];
+          _selectedStatusId = statusId;
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -70,7 +85,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator(color: Color(0xFFE79C24)))
-                  : _bookings.isEmpty
+                    : _bookings.isEmpty
                       ? Center(child: Text(loc.translate('no_bookings_available'), style: TextStyle(color: subTextColor)))
                       : ListView.builder(
                           padding: const EdgeInsets.only(bottom: 30),
@@ -134,6 +149,12 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   }
 
   Widget _buildBookingTicket(Map<String, dynamic> trip, Color textColor, Color cardColor, Color subTextColor, AppLocalizations loc) {
+    // تحديد اسم الحالة الحالية من التبويب المفتوح
+    String currentStatusName = "غير معروف";
+    try {
+      currentStatusName = _statuses.firstWhere((s) => s['id'] == _selectedStatusId)['statusName'];
+    } catch(e) {}
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
@@ -151,25 +172,41 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      // ✅ قراءة اسم الشركة الحقيقي
                       child: Text(trip['companyName'] ?? loc.translate('unknown_company'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor), overflow: TextOverflow.ellipsis),
                     ),
                     const SizedBox(width: 8),
-                    // رقم الحجز كبديل عن حالة الحجز لأن الـ API هنا لا يعيد حالة نصية
-                    _statusChip("#${trip['bookingId'] ?? '---'}"), 
+                    
+                    // 🎯 السحر هنا: إذا كانت الحالة "مؤكد" (id = 2)، نعرض زر التذكرة الأخضر
+                    if (_selectedStatusId == 2)
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => TicketQrScreen(bookingData: trip)));
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.qr_code_2, color: Colors.green, size: 16),
+                              SizedBox(width: 4),
+                              Text("عرض التذكرة", style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      _statusChip(currentStatusName, _selectedStatusId), // وإلا نعرض حالة الحجز العادية
                   ],
                 ),
                 const Divider(height: 30, color: Colors.grey),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // ✅ ربط المدن بالبيانات الحقيقية (startGovernorate)
                     Expanded(child: _locationCol(trip['startGovernorate'] ?? "---", "انطلاق", textColor, subTextColor)),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8.0),
                       child: Icon(Icons.swap_horiz, color: Colors.grey, size: 24),
                     ),
-                    // ✅ ربط المدن بالبيانات الحقيقية (endGovernorate)
                     Expanded(child: _locationCol(trip['endGovernorate'] ?? "---", "وصول", textColor, subTextColor)),
                   ],
                 ),
@@ -182,11 +219,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // ✅ ربط السعر الحقيقي (totalAmount)
                 Text("${trip['totalAmount'] ?? 0} ${loc.translate('riyals')}", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFE79C24))),
                 ElevatedButton(
                   onPressed: () {
-                    // الانتقال لشاشة التفاصيل التي برمجناها بالأسفل
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -209,11 +244,14 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     );
   }
 
-  Widget _statusChip(String text) {
+  Widget _statusChip(String text, int statusId) {
+    // تلوين الحالة حسب نوعها (برتقالي للانتظار، أحمر للملغي، الخ)
+    Color chipColor = statusId == 3 || statusId == 5 ? Colors.red : const Color(0xFFE79C24);
+    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(color: const Color(0xFFE79C24).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-      child: Text(text, style: const TextStyle(color: Color(0xFFE79C24), fontSize: 11, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(color: chipColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+      child: Text(text, style: TextStyle(color: chipColor, fontSize: 11, fontWeight: FontWeight.bold)),
     );
   }
 
@@ -229,7 +267,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 }
 
 // ============================================================================
-// شاشة تفاصيل الحجز (مدمجة هنا لتجنب أي أخطاء استيراد)
+// شاشة تفاصيل الحجز (التفاصيل العادية)
 // ============================================================================
 class BookingDetailsScreen extends StatelessWidget {
   final Map<String, dynamic> bookingData;
@@ -316,6 +354,115 @@ class BookingDetailsScreen extends StatelessWidget {
             fontWeight: isBold ? FontWeight.bold : FontWeight.w600
           ),
         ),
+      ],
+    );
+  }
+}
+
+// ============================================================================
+// شاشة الـ QR Code (تفتح فقط عند التأكيد)
+// ============================================================================
+class TicketQrScreen extends StatelessWidget {
+  final Map<String, dynamic> bookingData;
+
+  const TicketQrScreen({super.key, required this.bookingData});
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
+    final loc = AppLocalizations.of(context)!;
+    
+    final isAr = settings.locale.languageCode == 'ar';
+    final isDark = settings.isDark;
+    
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFE79C24); 
+    final cardColor = isDark ? const Color(0xFF2C2C2E) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
+    final primaryColor = const Color(0xFFE79C24);
+
+    // الكود الذي سيتم تشفيره (يفضل لاحقاً جلبه كـ ticketCode من السيرفر)
+    final String qrData = bookingData['ticketCode'] ?? "DARB-BOOKING-${bookingData['bookingId']}";
+
+    return Directionality(
+      textDirection: isAr ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: bgColor,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.close, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        body: Center(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('تذكرة الصعود', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 5),
+                const Text('يرجى إبراز هذا الرمز للموظف', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                const SizedBox(height: 35),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(30),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, 10))],
+                  ),
+                  child: Column(
+                    children: [
+                      Text('رقم الحجز', style: TextStyle(color: Colors.grey[500], fontSize: 13, fontWeight: FontWeight.bold)),
+                      Text('#${bookingData['bookingId']}', style: TextStyle(color: textColor, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                      const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Divider(thickness: 1, color: Colors.grey)),
+                      
+                      // ⬛ مربع الـ QR Code
+                      Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: Colors.white, 
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(color: Colors.grey.shade200, width: 2),
+                        ),
+                        child: QrImageView(
+                          data: qrData, 
+                          version: QrVersions.auto,
+                          size: 180.0,
+                          backgroundColor: Colors.white,
+                          errorCorrectionLevel: QrErrorCorrectLevel.H, 
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 25),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(child: _buildMiniDetail('المبلغ', '${bookingData['totalAmount']} ${loc.translate('riyals')}', textColor, primaryColor)),
+                          Expanded(child: _buildMiniDetail('الشركة', bookingData['companyName'] ?? '---', textColor, textColor, alignRight: true)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniDetail(String title, String val, Color tColor, Color vColor, {bool alignRight = false}) {
+    return Column(
+      crossAxisAlignment: alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(title, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+        Text(val, style: TextStyle(color: vColor, fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
       ],
     );
   }
