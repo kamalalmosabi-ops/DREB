@@ -29,15 +29,12 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   Future<void> _initData() async {
     setState(() => _isLoading = true);
     _statuses = await _service.getBookingStatuses();
-<<<<<<< HEAD
-    
+
     // إذا كانت القائمة غير فارغة، نختار أول حالة (غالباً 1)
     if (_statuses.isNotEmpty) {
       _selectedStatusId = _statuses.first['id'] ?? 1;
     }
-    
-=======
->>>>>>> 77a6c78c2d54820020d9c6fb3df0a9d42456927e
+
     await _fetchBookings(_selectedStatusId);
     setState(() => _isLoading = false);
   }
@@ -211,7 +208,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                       child: Text(trip['companyName'] ?? loc.translate('unknown_company'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor), overflow: TextOverflow.ellipsis),
                     ),
                     const SizedBox(width: 8),
-<<<<<<< HEAD
                     
                     // 🎯 السحر هنا: إذا كانت الحالة "مؤكد" (id = 2)، نعرض زر التذكرة الأخضر
                     if (_selectedStatusId == 2)
@@ -233,9 +229,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                       )
                     else
                       _statusChip(currentStatusName, _selectedStatusId), // وإلا نعرض حالة الحجز العادية
-=======
-                    _statusChip("#${trip['bookingId'] ?? '---'}"), 
->>>>>>> 77a6c78c2d54820020d9c6fb3df0a9d42456927e
                   ],
                 ),
                 const Divider(height: 30, color: Colors.grey),
@@ -307,11 +300,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 }
 
 // ============================================================================
-<<<<<<< HEAD
 // شاشة تفاصيل الحجز (التفاصيل العادية)
-=======
-// شاشة تفاصيل الحجز
->>>>>>> 77a6c78c2d54820020d9c6fb3df0a9d42456927e
 // ============================================================================
 class BookingDetailsScreen extends StatelessWidget {
   final Map<String, dynamic> bookingData;
