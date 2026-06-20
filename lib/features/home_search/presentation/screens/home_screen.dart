@@ -1,19 +1,20 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'search_results.dart';
 import 'package:darb/features/notifications/presentation/screens/notifications_screen.dart';
-import 'package:darb/features/bookings/presentation/screens/my_bookings_screen.dart';
 import 'companies_screen.dart';
 import 'all_trips_screen.dart';
 import 'package:darb/features/home_search/presentation/providers/home_provider.dart';
-
-import 'package:darb/features/bookings/data/models/booking_service.dart';
 import 'package:darb/core/network/dio_client.dart';
-
 import 'package:darb/core/localization/app_localizations.dart';
 import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
+
+// ✅ ضروري لإتاحة النقر على الشركة والانتقال لتفاصيلها
+import 'package:darb/features/home_search/data/models/company_model.dart';
+import 'company_details_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,53 +24,60 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // هنا الاسم سيبدأ افتراضياً بـ "يا صديقي" حتى يتم جلبه من السيرفر/الذاكرة
   String userName = "يا صديقي";
   String userToken = "";
-  Map<String, dynamic>? upcomingTrip;
   List<dynamic> companyAvatars = [];
   bool isExtraLoading = true;
+
+  final PageController _adController = PageController(viewportFraction: 0.9);
+  Timer? _adTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<HomeProvider>(context, listen: false).fetchHomeData();
+      Provider.of<HomeProvider>(context, listen: false).fetchHomeData().then((_) {
+        _startAdTimer();
+      });
       _loadExtraDynamicData();
     });
   }
 
-  // الدالة المعدلة لجلب الاسم الحقيقي
+  @override
+  void dispose() {
+    _adTimer?.cancel();
+    _adController.dispose();
+    super.dispose();
+  }
+
+  void _startAdTimer() {
+    final ads = Provider.of<HomeProvider>(context, listen: false).searchData?.ads ?? [];
+    if (ads.length > 1) {
+      _adTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+        if (_adController.hasClients) {
+          int nextPage = _adController.page!.round() + 1;
+          if (nextPage >= ads.length) nextPage = 0;
+          _adController.animateToPage(
+            nextPage,
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOutQuart,
+          );
+        }
+      });
+    }
+  }
+
   Future<void> _loadExtraDynamicData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
-      // جلب الاسم من الذاكرة المحلية (التي تم تحديثها عند تسجيل الدخول)
       String? savedName = prefs.getString('userName') ?? prefs.getString('fullName') ?? prefs.getString('name');
       String? email = prefs.getString('email');
       
-      if (savedName == null && email != null) {
-        savedName = email.split('@').first;
-      }
-      
-      // تحديث الحالة ليتغير النص في الواجهة فوراً
-      if (savedName != null && savedName.isNotEmpty) {
-        setState(() {
-          userName = savedName!;
-        });
-      }
+      if (savedName == null && email != null) savedName = email.split('@').first;
+      if (savedName != null && savedName.isNotEmpty) setState(() => userName = savedName!);
 
       userToken = prefs.getString('token') ?? prefs.getString('accessToken') ?? '';
       
-      final bookingService = BookingService();
-      var trips = await bookingService.getBookingsByStatus(1);
-      if (trips.isEmpty) {
-        trips = await bookingService.getBookingsByStatus(2);
-      }
-      if (trips.isNotEmpty) {
-        upcomingTrip = trips.first;
-      }
-
       final dio = DioClient();
       final res = await dio.get('/Customer/home/companies/avatar');
       if (res.statusCode == 200 && res.data != null) {
@@ -82,9 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       debugPrint("Error loading dynamic home data: $e");
     } finally {
-      if (mounted) {
-        setState(() => isExtraLoading = false);
-      }
+      if (mounted) setState(() => isExtraLoading = false);
     }
   }
 
@@ -94,14 +100,10 @@ class _HomeScreenState extends State<HomeScreen> {
       initialDate: provider.selectedDate,
       firstDate: DateTime.now(),
       lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: Color(0xFFE79C24)),
-          ),
-          child: child!,
-        );
-      },
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFFE79C24))),
+        child: child!,
+      ),
     );
     if (picked != null && picked != provider.selectedDate) {
       provider.updateSelectedDate(picked);
@@ -112,10 +114,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
     final loc = AppLocalizations.of(context)!;
-    
     final isDark = settings.isDark;
     const isAr = true;
-    
     final bgColor = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF8F9FD);
     final textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
 
@@ -128,6 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
             final governorates = homeProvider.searchData?.governorates ?? [];
             final companiesList = homeProvider.searchData?.companies ?? [];
             final times = homeProvider.searchData?.periods ?? [];
+            final ads = homeProvider.searchData?.ads ?? [];
 
             return Stack(
               children: [
@@ -137,15 +138,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       _buildUpperSection(homeProvider, governorates, companiesList, times, isDark, isAr, loc),
                       const SizedBox(height: 25),
+
+                      // ✅ عرض السلايدر في حال وجود إعلانات، أو عرض البديل (المساحة الإعلانية)
+                      if (ads.isNotEmpty) ...[
+                        _buildAdsCarousel(ads, isDark),
+                        const SizedBox(height: 25),
+                      ] else ...[
+                        _buildNoAdsPlaceholder(isDark),
+                        const SizedBox(height: 25),
+                      ],
                       
-                      _buildSectionTitle(loc.translate('your_upcoming_trips'), textColor, loc, () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const MyBookingsScreen()));
-                      }),
-                      
-                      _buildEnhancedTripCard(isDark, loc, isAr),
-                      const SizedBox(height: 25),
-                      
-                      _buildSectionTitle(loc.translate('transport_companies'), textColor, loc, () {
+                      _buildSectionTitle('شركات النقل', textColor, () {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const CompaniesScreen()));
                       }),
                       
@@ -157,13 +160,90 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (homeProvider.isLoading)
                   Container(
                     color: Colors.black.withValues(alpha: 0.1),
-                    child: const Center(
-                      child: CircularProgressIndicator(color: Color(0xFFE79C24)),
-                    ),
+                    child: const Center(child: CircularProgressIndicator(color: Color(0xFFE79C24))),
                   ),
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdsCarousel(List<dynamic> ads, bool isDark) {
+    return SizedBox(
+      height: 140,
+      child: PageView.builder(
+        controller: _adController,
+        physics: const BouncingScrollPhysics(),
+        itemCount: ads.length,
+        itemBuilder: (context, index) {
+          final ad = ads[index];
+          final String imageUrl = ad['image'] ?? '';
+          final String title = ad['title'] ?? '';
+
+          return AnimatedBuilder(
+            animation: _adController,
+            builder: (context, child) {
+              double value = 1.0;
+              if (_adController.position.haveDimensions) {
+                value = _adController.page! - index;
+                value = (1 - (value.abs() * 0.3)).clamp(0.0, 1.0);
+              }
+              return Center(
+                child: SizedBox(
+                  height: Curves.easeOut.transform(value) * 140,
+                  width: Curves.easeOut.transform(value) * double.infinity,
+                  child: child,
+                ),
+              );
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: isDark ? const Color(0xFF2C2C2E) : Colors.grey[300],
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 5))],
+                image: imageUrl.isNotEmpty ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover) : null,
+              ),
+              child: imageUrl.isEmpty
+                  ? Center(child: Text(title, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold, fontSize: 18)))
+                  : Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withValues(alpha: 0.6), Colors.transparent]),
+                      ),
+                      alignment: Alignment.bottomRight,
+                      padding: const EdgeInsets.all(15),
+                      child: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ✅ المساحة الإعلانية البديلة (تظهر في حال عدم وجود إعلانات من السيرفر)
+  Widget _buildNoAdsPlaceholder(bool isDark) {
+    return Container(
+      height: 140,
+      margin: const EdgeInsets.symmetric(horizontal: 25),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300, width: 1.5),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.campaign_outlined, color: Colors.grey.shade400, size: 45),
+            const SizedBox(height: 8),
+            Text("مساحة إعلانية", style: TextStyle(color: Colors.grey.shade500, fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text("ترقبوا أقوى العروض والخصومات قريباً!", style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+          ],
         ),
       ),
     );
@@ -176,10 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 240,
           decoration: const BoxDecoration(
             color: Color(0xFFE79C24),
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(40),
-              bottomRight: Radius.circular(40),
-            ),
+            borderRadius: BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
           ),
         ),
         SafeArea(
@@ -203,40 +280,22 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             children: [
-              const CircleAvatar(
-                radius: 22,
-                backgroundColor: Color(0xFF0D1B3E),
-                child: Icon(Icons.person, color: Colors.white),
-              ),
+              const CircleAvatar(radius: 22, backgroundColor: Color(0xFF0D1B3E), child: Icon(Icons.person, color: Colors.white)),
               const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // هنا يظهر الاسم المحدث
                   Text("أهلاً بك، $userName 👋", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                  Text(loc.translate('where_to_go_today'), style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                  const Text('إلى أين وجهتك اليوم؟', style: TextStyle(fontSize: 12, color: Colors.white70)),
                 ],
               ),
             ],
           ),
           Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
             child: IconButton(
               icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => NotificationsScreen(
-                      userType: "passenger",
-                      token: userToken,
-                    ),
-                  ),
-                );
-              },
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => NotificationsScreen(userType: "passenger", token: userToken))),
             ),
           ),
         ],
@@ -251,84 +310,37 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 25),
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(color: shadowColor, blurRadius: 30, offset: const Offset(0, 15))
-        ],
-      ),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: shadowColor, blurRadius: 30, offset: const Offset(0, 15))]),
       child: Column(
         children: [
-          _buildDropdownField(Icons.location_on, loc.translate('from_governorate'), provider.selectedFrom, governorates, (val) => provider.updateSelectedFrom(val), isDark, isAr),
+          _buildDropdownField(Icons.location_on, 'من محافظة', provider.selectedFrom, governorates, (val) => provider.updateSelectedFrom(val), isDark, isAr),
           const SizedBox(height: 12),
-          _buildDropdownField(Icons.navigation, loc.translate('to_governorate'), provider.selectedTo, governorates, (val) => provider.updateSelectedTo(val), isDark, isAr),
+          _buildDropdownField(Icons.navigation, 'إلى محافظة', provider.selectedTo, governorates, (val) => provider.updateSelectedTo(val), isDark, isAr),
           const SizedBox(height: 12),
-          _buildDropdownField(Icons.business_rounded, loc.translate('transport_company'), provider.selectedCompany, companies, (val) => provider.updateSelectedCompany(val), isDark, isAr),
+          _buildDropdownField(Icons.business_rounded, 'شركة النقل', provider.selectedCompany, companies, (val) => provider.updateSelectedCompany(val), isDark, isAr),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _buildDropdownField(Icons.access_time, loc.translate('period'), provider.selectedTime, times, (val) => provider.updateSelectedTime(val), isDark, isAr),
-              ),
+              Expanded(child: _buildDropdownField(Icons.access_time, 'الفترة', provider.selectedTime, times, (val) => provider.updateSelectedTime(val), isDark, isAr)),
               const SizedBox(width: 10),
-              Expanded(
-                child: InkWell(
-                  onTap: () => _selectDate(context, provider),
-                  child: _buildSearchField(Icons.calendar_today, loc.translate('date'), "${provider.selectedDate.day} / ${provider.selectedDate.month}", isDark, isAr),
-                ),
-              ),
+              Expanded(child: InkWell(onTap: () => _selectDate(context, provider), child: _buildSearchField(Icons.calendar_today, 'التاريخ', "${provider.selectedDate.day} / ${provider.selectedDate.month}", isDark, isAr))),
             ],
           ),
           const SizedBox(height: 20),
           SizedBox(
-            width: double.infinity,
-            height: 55,
+            width: double.infinity, height: 55,
             child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SearchResultsScreen(
-                      fromCity: provider.selectedFrom ?? '',
-                      toCity: provider.selectedTo ?? '',
-                      company: provider.selectedCompany ?? '',
-                      travelDate: provider.selectedDate,
-                      timePeriod: provider.selectedTime ?? '',
-                      fromCityId: provider.selectedFromId,
-                      toCityId: provider.selectedToId,
-                      companyId: provider.selectedCompanyId,
-                      periodId: provider.selectedPeriodId,
-                    ),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE79C24),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                elevation: 0,
-              ),
-              child: Text(
-                loc.translate('search_trips'),
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchResultsScreen(
+                fromCity: provider.selectedFrom ?? '', toCity: provider.selectedTo ?? '', company: provider.selectedCompany ?? '', travelDate: provider.selectedDate, timePeriod: provider.selectedTime ?? '', fromCityId: provider.selectedFromId, toCityId: provider.selectedToId, companyId: provider.selectedCompanyId, periodId: provider.selectedPeriodId,
+              ))),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE79C24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)), elevation: 0),
+              child: const Text('ابحث عن الرحلات', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
             ),
           ),
           const SizedBox(height: 8),
           TextButton(
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AllTripsScreen()));
-            },
-            child: Text(
-              loc.translate('explore_all_trips'),
-              style: const TextStyle(
-                color: Color(0xFFE79C24),
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                decoration: TextDecoration.underline,
-                decorationColor: Color(0xFFE79C24),
-              ),
-            ),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllTripsScreen())),
+            child: const Text('استكشف جميع الرحلات', style: TextStyle(color: Color(0xFFE79C24), fontSize: 14, fontWeight: FontWeight.bold, decoration: TextDecoration.underline, decorationColor: Color(0xFFE79C24))),
           ),
         ],
       ),
@@ -344,11 +356,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: fieldBgColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
-      ),
+      decoration: BoxDecoration(color: fieldBgColor, borderRadius: BorderRadius.circular(12), border: Border.all(color: borderColor)),
       child: Row(
         children: [
           Icon(icon, color: const Color(0xFFE79C24), size: 16),
@@ -362,21 +370,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF9CA3AF), size: 18),
                   isExpanded: true,
                   dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
-                  decoration: InputDecoration(
-                    labelText: label,
-                    labelStyle: TextStyle(fontSize: 11, color: labelColor, fontWeight: FontWeight.w500),
-                    border: InputBorder.none,
-                    alignLabelWithHint: true,
-                  ),
-                  items: items.map((String value) => DropdownMenuItem(
-                    value: value,
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      value,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  )).toList(),
+                  decoration: InputDecoration(labelText: label, labelStyle: TextStyle(fontSize: 11, color: labelColor, fontWeight: FontWeight.w500), border: InputBorder.none, alignLabelWithHint: true),
+                  items: items.map((String value) => DropdownMenuItem(value: value, alignment: Alignment.centerRight, child: Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor), overflow: TextOverflow.ellipsis))).toList(),
                   onChanged: onChanged,
                 ),
               ),
@@ -395,11 +390,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: fieldBgColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
-      ),
+      decoration: BoxDecoration(color: fieldBgColor, borderRadius: BorderRadius.circular(12), border: Border.all(color: borderColor)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
@@ -420,102 +411,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildEnhancedTripCard(bool isDark, AppLocalizations loc, bool isAr) {
-    final cardColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFF0D1B3E);
-    
-    if (isExtraLoading) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 25),
-        height: 120,
-        decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(25)),
-        child: const Center(child: CircularProgressIndicator(color: Colors.orange)),
-      );
-    }
-
-    if (upcomingTrip == null) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 25),
-        padding: const EdgeInsets.all(20),
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: cardColor.withValues(alpha: 0.2), blurRadius: 15, offset: const Offset(0, 8))]
-        ),
-        child: const Column(
-          children: [
-            Icon(Icons.bus_alert, color: Colors.white54, size: 40),
-            SizedBox(height: 10),
-            Text("لا توجد لديك رحلات قادمة حالياً", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-            SizedBox(height: 5),
-            Text("احجز رحلتك الآن وانطلق في مغامرتك القادمة!", style: TextStyle(color: Colors.white70, fontSize: 12)),
-            SizedBox(height: 10),
-          ],
-        ),
-      );
-    }
-
-    final trip = upcomingTrip!;
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 25),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: cardColor.withValues(alpha: 0.2), blurRadius: 15, offset: const Offset(0, 8))]
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text("رقم الحجز #${trip['bookingId'] ?? '---'}", style: const TextStyle(color: Colors.white54, fontSize: 10)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
-                child: const Text("رحلة قادمة", style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 15),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _tripLocation(trip['startGovernorate'] ?? "انطلاق", ""),
-              const Icon(Icons.swap_horiz, color: Colors.orange, size: 28),
-              _tripLocation(trip['endGovernorate'] ?? "وصول", ""),
-            ],
-          ),
-          const Divider(color: Colors.white10, height: 30),
-          Row(
-            children: [
-              const Icon(Icons.directions_bus, color: Colors.orange, size: 16),
-              const SizedBox(width: 8),
-              Expanded(child: Text(trip['companyName'] ?? "شركة النقل", style: const TextStyle(color: Colors.white, fontSize: 12), overflow: TextOverflow.ellipsis)),
-              Text("${trip['totalAmount'] ?? 0} ${loc.translate('riyals')}", style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
-            ],
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _tripLocation(String city, String time) {
-    return Column(
-      children: [
-        Text(city, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-        if (time.isNotEmpty) Text(time, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-      ],
-    );
-  }
-
+  // ✅ الشركات في الهوم أصبحت قابلة للنقر وتنقلك لتفاصيل الشركة
   Widget _buildCompaniesList(bool isDark) {
-    if (isExtraLoading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFFE79C24)));
-    }
-    if (companyAvatars.isEmpty) {
-      return const SizedBox();
-    }
+    if (isExtraLoading) return const Center(child: CircularProgressIndicator(color: Color(0xFFE79C24)));
+    if (companyAvatars.isEmpty) return const SizedBox();
 
     final cardColor = isDark ? const Color(0xFF2C2C2E) : Colors.white;
     final borderColor = isDark ? Colors.transparent : const Color(0xFFF3F4F6);
@@ -532,35 +431,32 @@ class _HomeScreenState extends State<HomeScreen> {
           final String logoUrl = comp['logo'] ?? '';
           final String name = comp['name'] ?? 'شركة نقل';
 
-          return Container(
-            width: 100,
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: borderColor),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                logoUrl.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.network(
-                          logoUrl,
-                          height: 40,
-                          width: 50,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.directions_bus, color: Color(0xFFE79C24), size: 30),
-                        ),
-                      )
-                    : const Icon(Icons.directions_bus_filled_rounded, color: Color(0xFFE79C24), size: 35),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  child: Text(name, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textColor), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
-                ),
-              ],
+          return GestureDetector(
+            onTap: () {
+              // توجيه العميل إلى تفاصيل الشركة عند الضغط
+              final companyObj = Company(
+                id: comp['companyId'] ?? comp['id'] ?? 0,
+                name: name,
+                rating: 5.0, 
+                totalTrips: 0,
+                logoUrl: logoUrl,
+              );
+              Navigator.push(context, MaterialPageRoute(builder: (_) => CompanyDetailsScreen(company: companyObj)));
+            },
+            child: Container(
+              width: 100,
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderColor)),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  logoUrl.isNotEmpty
+                      ? ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(logoUrl, height: 40, width: 50, fit: BoxFit.contain, errorBuilder: (c, e, s) => const Icon(Icons.directions_bus, color: Color(0xFFE79C24), size: 30)))
+                      : const Icon(Icons.business, color: Color(0xFFE79C24), size: 35),
+                  const SizedBox(height: 8),
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 5), child: Text(name, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textColor), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                ],
+              ),
             ),
           );
         },
@@ -568,7 +464,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSectionTitle(String title, Color textColor, AppLocalizations loc, VoidCallback onTap) {
+  Widget _buildSectionTitle(String title, Color textColor, VoidCallback onTap) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
       child: Row(
@@ -577,7 +473,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
           GestureDetector(
             onTap: onTap,
-            child: Text(loc.translate('view_all'), style: const TextStyle(fontSize: 12, color: Color(0xFFE79C24), fontWeight: FontWeight.bold)),
+            child: const Text('عرض الكل', style: TextStyle(fontSize: 12, color: Color(0xFFE79C24), fontWeight: FontWeight.bold)),
           ),
         ],
       ),

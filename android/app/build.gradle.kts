@@ -14,6 +14,8 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // السطر الجديد لتفعيل ميزة Desugaring
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -45,7 +47,11 @@ android {
 flutter {
     source = "../.."
 }
+
 dependencies {
+    // السطر الجديد لجلب مكتبة Desugaring
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+
     // استيراد الحزمة الأساسية للفايربيس
     implementation(platform("com.google.firebase:firebase-bom:34.13.0"))
     

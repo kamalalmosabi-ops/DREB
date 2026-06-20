@@ -47,16 +47,14 @@ class _ReservationScreenState extends State<ReservationScreen> {
   }
 
   void _goToReviewScreen(AppLocalizations loc) {
-    // التحقق من صحة الحقول (الاسم، الهوية، الجوال)
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
 
     if (_paymentMethod == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.translate('please_select_payment_method'))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.translate('please_select_payment_method') ?? 'يرجى اختيار طريقة الدفع')));
       return;
     }
 
-    // الانتقال لشاشة المراجعة (بدون رفع الصورة هنا)
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -100,10 +98,10 @@ class _ReservationScreenState extends State<ReservationScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   children: [
                     const SizedBox(height: 25),
-                    _buildSectionTitle(loc.translate('passengers_data'), textColor),
+                    _buildSectionTitle(loc.translate('passengers_data') ?? 'بيانات الركاب', textColor),
                     ...List.generate(widget.ticketCount, (index) => _buildPassengerCard(index, loc, isAr, cardColor, inputBgColor, textColor)),
                     const SizedBox(height: 25),
-                    _buildSectionTitle(loc.translate('payment_method'), textColor),
+                    _buildSectionTitle(loc.translate('payment_method') ?? 'طريقة الدفع', textColor),
                     _buildPaymentMethodSelector(loc, textColor),
                     const SizedBox(height: 50),
                   ],
@@ -123,7 +121,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
       child: Row(
         children: [
           IconButton(onPressed: () => Navigator.pop(context), icon: Icon(isAr ? Icons.arrow_back_ios : Icons.arrow_forward_ios, color: Colors.white)),
-          Text(loc.translate('confirm_trip_booking'), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(loc.translate('confirm_trip_booking') ?? 'تأكيد الحجز', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -137,11 +135,12 @@ class _ReservationScreenState extends State<ReservationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-           Text("${loc.translate('passenger_data_singular')} ${index + 1}", style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+           Text("${loc.translate('passenger_data_singular') ?? 'بيانات الراكب'} ${index + 1}", style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
            const SizedBox(height: 15),
-           _buildField(loc.translate('full_name'), Icons.person, (v) => passengers[index].fullName = v ?? "", inputBgColor, isAr),
+           _buildField(loc.translate('full_name') ?? 'الاسم الرباعي', Icons.person, (v) => passengers[index].fullName = v ?? "", inputBgColor, isAr),
            const SizedBox(height: 10),
-           _buildField("رقم الهوية", Icons.badge, (v) => passengers[index].nationalId = v ?? "", inputBgColor, isAr, isNumber: true),
+           // ✅ تم تحديد الحد الأقصى للهوية بـ 11 رقم
+           _buildField("رقم الهوية / الجواز", Icons.badge, (v) => passengers[index].nationalId = v ?? "", inputBgColor, isAr, isNumber: true, maxLength: 11),
            const SizedBox(height: 10),
            _buildField("رقم الجوال", Icons.phone, (v) => passengers[index].phoneNumber = v ?? "", inputBgColor, isAr, isNumber: true),
         ],
@@ -149,16 +148,23 @@ class _ReservationScreenState extends State<ReservationScreen> {
     );
   }
 
-  Widget _buildField(String hint, IconData icon, Function(String?) onSaved, Color inputBgColor, bool isAr, {bool isNumber = false}) {
+  // ✅ تم إضافة خصائص maxLength و counterText لإخفاء العداد
+  Widget _buildField(String hint, IconData icon, Function(String?) onSaved, Color inputBgColor, bool isAr, {bool isNumber = false, int? maxLength}) {
     return TextFormField(
       onSaved: onSaved,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-      validator: (value) => (value == null || value.trim().isEmpty) ? 'هذا الحقل مطلوب لإتمام الحجز' : null,
+      maxLength: maxLength,
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) return 'هذا الحقل مطلوب لإتمام الحجز';
+        if (maxLength != null && value.length != maxLength) return 'يجب أن يتكون من $maxLength رقماً';
+        return null;
+      },
       decoration: InputDecoration(
         hintText: hint, 
         prefixIcon: Icon(icon, color: Colors.grey),
         filled: true, 
         fillColor: inputBgColor, 
+        counterText: "", // ✅ إخفاء العداد الرقمي المزعج
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)
       ),
     );
@@ -184,7 +190,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
   Widget _buildSectionTitle(String t, Color textColor) => Text(t, style: TextStyle(fontWeight: FontWeight.bold, color: textColor));
   
   Widget _buildPaymentMethodSelector(AppLocalizations loc, Color textColor) => RadioListTile<String>(
-    title: Text(loc.translate('bank_transfer_deposit'), style: TextStyle(color: textColor)), 
+    title: Text(loc.translate('bank_transfer_deposit') ?? 'تحويل بنكي', style: TextStyle(color: textColor)), 
     value: "سند", 
     groupValue: _paymentMethod, 
     activeColor: primaryColor,

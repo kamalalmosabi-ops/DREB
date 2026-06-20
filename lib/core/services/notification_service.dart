@@ -17,7 +17,7 @@ class NotificationService {
     const InitializationSettings settings = InitializationSettings(
         android: androidSettings, iOS: DarwinInitializationSettings());
 
-    await _localNotifications.initialize(settings);
+    await _localNotifications.initialize(settings: settings);
 
     // 2. طلب إذن الإشعارات من المستخدم (مهم جداً لنظام iOS وأندرويد الحديث)
     await FirebaseMessaging.instance.requestPermission();
@@ -32,10 +32,10 @@ class NotificationService {
 
   void _showLocalNotification(RemoteMessage message) {
     _localNotifications.show(
-      message.hashCode,
-      message.notification?.title,
-      message.notification?.body,
-      const NotificationDetails(
+      id: message.hashCode,
+      title: message.notification?.title,
+      body: message.notification?.body,
+      notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           'high_importance_channel', // هذا الاسم يجب أن يتطابق مع الـ AndroidManifest
           'Darb Notifications',
