@@ -36,6 +36,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # تم إضافة مكتبة الأيقونات هنا
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
@@ -53,3 +55,11 @@ flutter:
         - asset: assets/fonts/Tajawal-Regular.ttf
         - asset: assets/fonts/Tajawal-Bold.ttf
           weight: 700
+
+# إعدادات توليد أيقونة التطبيق لشعار "درب" الخاص بكِ
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/logo.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true

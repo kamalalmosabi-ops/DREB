@@ -1,5 +1,10 @@
-// المسار: lib/core/utils/validators.dart
 class Validators {
+  // ignore: deprecated_member_use
+  static final RegExp _emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+  
+  // ignore: deprecated_member_use
+  static final RegExp _phoneRegex = RegExp(r'^[0-9]{9,10}$');
+
   static String? validateName(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'يرجى إدخال الاسم';
@@ -14,8 +19,8 @@ class Validators {
     if (value == null || value.trim().isEmpty) {
       return 'يرجى إدخال البريد الإلكتروني';
     }
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    if (!emailRegex.hasMatch(value.trim())) {
+    // الاستدعاء هنا أصبح مباشر ونظيف جداً
+    if (!_emailRegex.hasMatch(value.trim())) {
       return 'يرجى إدخال بريد إلكتروني صحيح';
     }
     return null;
@@ -25,8 +30,8 @@ class Validators {
     if (value == null || value.trim().isEmpty) {
       return 'يرجى إدخال رقم الجوال';
     }
-    final phoneRegex = RegExp(r'^[0-9]{9,10}$');
-    if (!phoneRegex.hasMatch(value.trim())) {
+    // الاستدعاء هنا أصبح مباشر ونظيف جداً
+    if (!_phoneRegex.hasMatch(value.trim())) {
       return 'رقم الجوال يجب أن يكون 9 أو 10 أرقام';
     }
     return null;

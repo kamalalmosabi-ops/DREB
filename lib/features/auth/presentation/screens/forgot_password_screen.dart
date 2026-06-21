@@ -99,7 +99,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Widget _buildLabel(String text, bool isAr, Color color) => Align(alignment: isAr ? Alignment.centerRight : Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(text, style: TextStyle(fontWeight: FontWeight.bold, color: color))));
   Widget _buildMainButton(String text, VoidCallback onTap) => SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: onTap, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE79C24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))), child: Text(text, style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))));
   
-  // ✅ تم ضبط اتجاه السهم الداخلي ليتناسب مع مكانه الجديد باليسار
+  //  تم ضبط اتجاه السهم الداخلي ليتناسب مع مكانه الجديد باليسار
   Widget _buildCircleBackButton(BuildContext context, bool isAr) => GestureDetector(
       onTap: () => Navigator.pop(context), 
       child: Container(

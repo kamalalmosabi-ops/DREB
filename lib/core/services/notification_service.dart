@@ -17,6 +17,7 @@ class NotificationService {
     const InitializationSettings settings = InitializationSettings(
         android: androidSettings, iOS: DarwinInitializationSettings());
 
+    // تم إرجاع المعامل المسمى (settings:) للتوافق مع التحديث الجديد
     await _localNotifications.initialize(settings: settings);
 
     // 2. طلب إذن الإشعارات من المستخدم (مهم جداً لنظام iOS وأندرويد الحديث)
@@ -31,6 +32,7 @@ class NotificationService {
   }
 
   void _showLocalNotification(RemoteMessage message) {
+    // تم إرجاع المعاملات المسماة (id:, title:, body:, notificationDetails:) هنا أيضاً
     _localNotifications.show(
       id: message.hashCode,
       title: message.notification?.title,

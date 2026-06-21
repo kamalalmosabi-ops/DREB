@@ -22,6 +22,10 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
   final _addressController = TextEditingController();
   final _dobController = TextEditingController();
 
+  // تم نقل الـ RegExp إلى هنا لحل التحذير بشكل نهائي ورفع الأداء
+  // ignore: deprecated_member_use
+  static final RegExp _saudiPhoneRegex = RegExp(r'^05[0-9]{8}$');
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -99,7 +103,8 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
                     tfFillColor: tfFillColor, textColor: textColor, hintColor: hintColor, 
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'رقم الجوال مطلوب لتفعيل الحساب.';
-                      if (!RegExp(r'^05[0-9]{8}$').hasMatch(v)) return 'صيغة خاطئة. المطلوب رقم سعودي يبدأ بـ 05 ومكون من 10 أرقام.';
+                      // الاستدعاء أصبح من المتغير الثابت ونظيف جداً بدون أخطاء
+                      if (!_saudiPhoneRegex.hasMatch(v)) return 'صيغة خاطئة. المطلوب رقم سعودي يبدأ بـ 05 ومكون من 10 أرقام.';
                       return null;
                     }
                   ),
@@ -112,7 +117,7 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
                     tfFillColor: tfFillColor, textColor: textColor, hintColor: hintColor, 
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'رقم الهوية الوطنية مطلوب للتوثيق.';
-                      if (v.length < 11 || double.tryParse(v) == null) return 'خطأ، المطلوب إدخال رقم هوية صحيح ومكون من 11 رقماً.';
+                      if (v.length < 11 || double.tryParse(v) == null) return 'خطأ, المطلوب إدخال رقم هوية صحيح ومكون من 11 رقماً.';
                       return null;
                     }
                   ),

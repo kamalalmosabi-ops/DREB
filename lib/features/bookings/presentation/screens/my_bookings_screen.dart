@@ -186,7 +186,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     String currentStatusName = "غير معروف";
     try {
       currentStatusName = _statuses.firstWhere((s) => s['id'] == _selectedStatusId)['statusName'];
-    } catch(e) {}
+    } catch(e) {
+      debugPrint(e.toString());
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
