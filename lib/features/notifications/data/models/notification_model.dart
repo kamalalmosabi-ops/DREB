@@ -2,9 +2,10 @@ class NotificationModel {
   final int id;
   final String title;
   final String body;
-  final int category; // 1: حجوزات, 2: تنبيهات إدارية, 3: المدفوعات
+  final int category; // يمثل notificationType: 1 حجوزات, 2 تنبيهات...
   final DateTime createdAt;
   bool isRead;
+  final String? companyLogo; // ✅ تمت الإضافة لعرض شعار الشركة المُرسِلة
 
   NotificationModel({
     required this.id,
@@ -13,23 +14,25 @@ class NotificationModel {
     required this.category,
     required this.createdAt,
     this.isRead = false,
+    this.companyLogo,
   });
 
-  // تحويل البيانات القادمة من السيرفر بأمان مع التعامل مع القيم الافتراضية
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
       id: json['id'] ?? 0,
       title: json['title'] ?? '',
       body: json['body'] ?? '',
-      category: json['category'] ?? 1,
+      // ✅ نأخذ notificationType كما هو في السيرفر، وإذا لم يوجد نأخذ category كاحتياط
+      category: json['notificationType'] ?? json['category'] ?? 1,
       createdAt: json['createdAt'] != null 
           ? DateTime.parse(json['createdAt']) 
           : DateTime.now(),
       isRead: json['isRead'] ?? false,
+      // ✅ استخراج مسار اللوجو من كائن senderCompany
+      companyLogo: json['senderCompany'] != null ? json['senderCompany']['logo'] : null,
     );
   }
 
-  // دالة لتحويل رقم التصنيف إلى نص يعرض في الواجهة
   String get categoryName {
     switch (category) {
       case 1: return "حجوزات";
@@ -39,13 +42,11 @@ class NotificationModel {
     }
   }
 
-  // دالة مساعدة لفلترة القائمة بناءً على التبويب المختار
   static List<NotificationModel> getFiltered(List<NotificationModel> list, String filter) {
     if (filter == "الكل") return list;
     return list.where((n) => n.categoryName == filter).toList();
   }
 
-  // قائمة للاختبار وفحص الواجهات قبل الربط النهائي (Dummy Data)
   static List<NotificationModel> get dummyNotifications => [
     NotificationModel(
       id: 1,
@@ -54,14 +55,6 @@ class NotificationModel {
       category: 1,
       createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
       isRead: false,
-    ),
-    NotificationModel(
-      id: 2,
-      title: "تنبيه إداري",
-      body: "يرجى تحديث بيانات الملف الشخصي لضمان استمرارية الخدمة.",
-      category: 2,
-      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-      isRead: true,
     ),
   ];
 }

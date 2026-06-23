@@ -1,16 +1,13 @@
 import 'package:darb/core/network/dio_client.dart';
-import 'company_model.dart';
-import 'trip_model.dart';
+import '../models/company_model.dart';
+import '../models/trip_model.dart';
 
 class CompanyApiService {
   final DioClient _dioClient = DioClient();
 
-  // 1. جلب قائمة الشركات بالكامل
   Future<List<Company>> getAllCompanies() async {
     try {
-      // تم توحيد الرابط ليكون مطابقاً لما يقبله السيرفر ويعطي statusCode 200
       final response = await _dioClient.get('/Customer/home/companies/avatar');
-      
       if (response.statusCode == 200 && response.data != null) {
         final List<dynamic> data = response.data;
         return data.map((json) => Company.fromJson(json)).toList();
@@ -21,21 +18,33 @@ class CompanyApiService {
     }
   }
 
-  // 2. جلب رحلات شركة معينة بناءً على الـ ID
+  // ✅ استخدام مسار البحث المسموح للعملاء لحل خطأ 403
   Future<List<Trip>> getCompanyTrips(int companyId) async {
     try {
-      // 🟢 تصحيح رابط جلب الرحلات ليتوافق مع الـ Controller الخاص بالشركات في السيرفر
-      final response = await _dioClient.get('/Company/trips', queryParameters: {
-        'companyId': companyId,
-      });
+      final response = await _dioClient.post(
+        '/Customer/home/search',
+        data: {
+          "fromGovernorateId": 0,
+          "toGovernorateId": 0,
+          "companyId": companyId,
+          "periodId": 0,
+          "date": null,
+        },
+      );
 
       if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> data = response.data;
-        return data.map((json) => Trip.fromJson(json)).toList();
+        final decodedData = response.data;
+        if (decodedData is Map && decodedData.containsKey('data')) {
+          List dataList = decodedData['data'];
+          return dataList.map((item) => Trip.fromJson(item)).toList();
+        } else if (decodedData is List) {
+          return decodedData.map((item) => Trip.fromJson(item)).toList();
+        }
       }
       return [];
     } catch (e) {
-      throw Exception('فشل جلب رحلات الشركة: $e');
+      print("🛠️ Error in getCompanyTrips: $e");
+      return [];
     }
   }
 }

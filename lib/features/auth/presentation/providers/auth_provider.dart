@@ -3,6 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../data/models/user_model.dart';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:darb/features/notifications/data/models/notification_api_service.dart'; 
+
 class AuthProvider with ChangeNotifier {
   final DioClient _dioClient = DioClient();
   
@@ -14,7 +17,7 @@ class AuthProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  // --- دالة تسجيل الدخول (المعدلة والآمنة) ---
+  // --- دالة تسجيل الدخول ---
   Future<bool> login(String email, String password) async {
     _setLoading(true);
     _clearError();
@@ -25,7 +28,6 @@ class AuthProvider with ChangeNotifier {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // حماية ضد مشكلة نوع البيانات (التأكد من أنها Map وليست String)
         if (response.data is Map) {
           var dataObj = response.data['data'];
           if (dataObj != null) {
@@ -90,25 +92,36 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // --- دالة معالجة الدخول وحفظ التوكن (المعدلة والآمنة) ---
+  // --- دالة معالجة الدخول وحفظ التوكن ---
   Future<void> _handleSuccessfulAuth(dynamic userData) async {
     try {
       String? token;
 
-      // استخراج التوكن بأمان أولاً
       if (userData is Map) {
         token = userData['token'];
       }
 
-      // حفظ التوكن فوراً في DioClient و SharedPreferences
       if (token != null && token.isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', token);
         _dioClient.setToken(token); 
         debugPrint("✅ تم التقاط التوكن وحفظه بنجاح!");
+
+        try {
+          String? fcmToken = await FirebaseMessaging.instance.getToken();
+          if (fcmToken != null) {
+            // ✅ تم إزالة تمرير الـ token اليدوي هنا (DioClient سيتكفل به)
+            await NotificationApiService().registerDeviceToken(
+              fcmToken: fcmToken, 
+              deviceType: 1, 
+            );
+            debugPrint("✅ تم ربط توكن الإشعارات (FCM) بالسيرفر بنجاح!");
+          }
+        } catch (e) {
+          debugPrint("⚠️ فشل في ربط توكن الإشعارات: $e");
+        }
       }
 
-      // محاولة تحويل البيانات إلى UserModel داخل Try-Catch لتجنب الكراش
       try {
         _currentUser = UserModel.fromJson(userData);
       } catch (e) {
@@ -123,7 +136,6 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // --- دوال التسجيل (OTP) ---
   Future<bool> sendRegistrationOTP(String email) async {
     _setLoading(true);
     try {
@@ -142,7 +154,6 @@ class AuthProvider with ChangeNotifier {
     } catch (e) { _setExceptionError(e); return false; }
   }
 
-  // --- دوال "نسيت كلمة المرور" ---
   Future<bool> sendForgotPasswordOTP(String email) async {
     _setLoading(true);
     _clearError();
@@ -169,7 +180,6 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // --- دوال المساعدة ---
   void _setLoading(bool value) {
     _isLoading = value;
     notifyListeners();

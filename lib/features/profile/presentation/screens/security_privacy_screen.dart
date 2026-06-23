@@ -34,15 +34,17 @@ class _SecurityPrivacyScreenState extends State<SecurityPrivacyScreen> {
       final prefs = await SharedPreferences.getInstance();
       final String? token = prefs.getString('auth_token');
 
+      // ✅ التعديل هنا: استخدام المسار الصحيح حسب الـ Swagger
       final response = await http.put(
-        Uri.parse('$_baseUrl/api/Customer/settings/change-password'),
+        Uri.parse('$_baseUrl/api/Auth/change-password'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
+        // ✅ التعديل هنا: استخدام oldPassword بدلاً من currentPassword
         body: json.encode({
-          'currentPassword': _currentPasswordController.text,
-          'newPassword': _newPasswordController.text,
+          'oldPassword': _currentPasswordController.text.trim(),
+          'newPassword': _newPasswordController.text.trim(),
         }),
       );
 
@@ -55,14 +57,14 @@ class _SecurityPrivacyScreenState extends State<SecurityPrivacyScreen> {
         _newPasswordController.clear();
         _confirmPasswordController.clear();
       } else {
-        throw Exception("فشل التغيير: تحقق من كلمة المرور الحالية");
+        throw Exception("فشل التغيير: يرجى التحقق من كلمة المرور الحالية");
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("$e".replaceAll("Exception: ", "")), backgroundColor: Colors.red),
       );
-    } finally { // تم إصلاح الخطأ المطبعي هنا من final إلى finally
+    } finally { 
       if (mounted) setState(() => _isSaving = false);
     }
   }

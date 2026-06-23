@@ -12,7 +12,7 @@ import '../../../../core/localization/app_localizations.dart';
 
 import 'account_data_screen.dart';
 import 'security_privacy_screen.dart';
-import 'support_screen.dart';
+import 'support_screen.dart'; // الملف الذي يحتوي على الشاشتين الآن
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -33,7 +33,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // دالة ذكية لجلب اسم المستخدم الحقيقي بجميع الاحتمالات من السيرفر
   String get _getUserName {
     if (_userData == null) return "User Name";
-    // إذا كانت البيانات داخل كائن فرعي اسمه data أو result
     final data = _userData!['data'] ?? _userData!['result'] ?? _userData!;
     return data['name']?.toString() ?? 
            data['Name']?.toString() ?? 
@@ -131,11 +130,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final Color subTextColor = isDark ? Colors.grey[400]! : Colors.grey[600]!;
     final Color primaryColor = const Color(0xFFE79C24); 
 
-    // التأكد من أن المترجم جاهز
     final localizations = AppLocalizations.of(context);
 
     return Directionality(
-      // تغيير اتجاه الشاشة بناءً على اللغة المختارة
       textDirection: settings.locale.languageCode == 'ar' ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         backgroundColor: bgColor,
@@ -168,7 +165,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20)),
                                 child: Column(
                                   children: [
-                                    // تم تعديل الاسم هنا ليصبح باللغة العربية مباشرة وبشكل ثابت
                                     _menuTile(Icons.person_outline_rounded, "بيانات الحساب", textColor, subTextColor, () {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => EditProfileScreen(userData: _userData)));
                                     }),
@@ -230,10 +226,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20)),
                                 child: Column(
                                   children: [
+                                    // ✅ الخيار الأول: الدعم الفني
                                     _menuTile(Icons.headset_mic_outlined, localizations?.translate('support') ?? "الدعم الفني", textColor, subTextColor, () {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportScreen()));
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const TechnicalSupportScreen()));
                                     }),
                                     _buildDivider(cardColor),
+                                    
+                                    // ✅ الخيار الثاني (الجديد): الشكاوى
+                                    _menuTile(Icons.report_problem_outlined, "الشكاوى", textColor, subTextColor, () {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ComplaintsScreen()));
+                                    }),
+                                    _buildDivider(cardColor),
+
+                                    // خيار تسجيل الخروج
                                     ListTile(
                                       leading: const Icon(Icons.logout, color: Colors.redAccent),
                                       title: Text(localizations?.translate('logout') ?? "تسجيل الخروج", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 15)),

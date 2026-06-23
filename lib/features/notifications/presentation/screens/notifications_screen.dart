@@ -7,12 +7,11 @@ import 'package:darb/features/settings/presentation/providers/settings_provider.
 
 class NotificationsScreen extends StatefulWidget {
   final String userType;
-  final String token; 
+  // ✅ تم حذف متغير الـ token من هنا بالكامل
 
   const NotificationsScreen({
     super.key, 
     required this.userType, 
-    required this.token,
   });
 
   @override
@@ -26,7 +25,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<NotificationProvider>().fetchNotifications(widget.token);
+      context.read<NotificationProvider>().fetchNotifications();
     });
   }
 
@@ -56,7 +55,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               child: notificationProvider.isLoading
                   ? const Center(child: CircularProgressIndicator(color: Color(0xFFE79C24)))
                   : filteredNotifications.isEmpty
-                      ? Center(child: Text(loc.translate('no_notifications'), style: TextStyle(color: textColor.withValues(alpha: 0.5))))
+                      ? Center(child: Text(loc.translate('no_notifications') ?? 'لا توجد تنبيهات', style: TextStyle(color: textColor.withValues(alpha: 0.5))))
                       : _buildModernList(filteredNotifications, textColor, cardColor, loc, isAr),
             ),
           ],
@@ -77,14 +76,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 22), onPressed: () => Navigator.pop(context)),
-          Text(loc.translate('notifications_center'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+          Text(loc.translate('notifications_center') ?? 'مركز التنبيهات', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
           IconButton(
             icon: const Icon(Icons.done_all_rounded, color: Colors.white),
             onPressed: () async {
-              await provider.markAllNotificationsAsRead(widget.token);
-              // ✅ تعديل هنا لحل تحذير use_build_context_synchronously بشكل نهائي يتوافق مع التحديثات
+              await provider.markAllNotificationsAsRead();
               if (!context.mounted) return; 
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.translate('mark_all_read'))));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.translate('mark_all_read') ?? 'تم تحديد الكل كمقروء')));
             },
           ),
         ],
@@ -123,20 +121,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Widget _buildModernList(List<NotificationModel> list, Color textColor, Color cardColor, AppLocalizations loc, bool isAr) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-      itemCount: list.length,
-      itemBuilder: (context, index) {
-        final noti = list[index];
-        return GestureDetector(
-          onTap: () {
-            if (!noti.isRead) {
-              context.read<NotificationProvider>().markAsRead(noti.id, widget.token);
-            }
-          },
-          child: _buildEnhancedPremiumCard(noti, textColor, cardColor, loc, isAr),
-        );
-      },
+    return RefreshIndicator(
+      color: const Color(0xFFE79C24),
+      onRefresh: () => context.read<NotificationProvider>().fetchNotifications(),
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+        itemCount: list.length,
+        itemBuilder: (context, index) {
+          final noti = list[index];
+          return GestureDetector(
+            onTap: () {
+              if (!noti.isRead) {
+                context.read<NotificationProvider>().markAsRead(noti.id);
+              }
+            },
+            child: _buildEnhancedPremiumCard(noti, textColor, cardColor, loc, isAr),
+          );
+        },
+      ),
     );
   }
 
@@ -145,8 +147,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
       decoration: BoxDecoration(
-        color: cardColor,
+        color: noti.isRead ? cardColor : const Color(0xFFE79C24).withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: noti.isRead ? Colors.transparent : const Color(0xFFE79C24).withValues(alpha: 0.3)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 15, offset: const Offset(0, 6))],
       ),
       child: Padding(
@@ -173,7 +176,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildIconBox(noti.category, themeColor),
+                _buildIconBox(noti.category, themeColor, noti.companyLogo),
                 const SizedBox(width: 15),
                 Expanded(
                   child: Column(
@@ -193,7 +196,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildIconBox(int category, Color color) {
+  Widget _buildIconBox(int category, Color color, String? logoUrl) {
+    if (logoUrl != null && logoUrl.isNotEmpty) {
+      final fullUrl = "https://server-darb.runasp.net$logoUrl";
+      return Container(
+        width: 45, height: 45,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          image: DecorationImage(image: NetworkImage(fullUrl), fit: BoxFit.cover),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+      );
+    }
+
     IconData iconData = Icons.notifications_none_rounded;
     if (category == 1) {
       iconData = Icons.directions_bus_filled_rounded;
@@ -226,7 +241,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   String _formatTimestampShort(DateTime time, AppLocalizations loc) {
     final diff = DateTime.now().difference(time);
-    if (diff.inMinutes < 60) return "منذ ${diff.inMinutes} ${loc.translate('minute_ago')}";
+    if (diff.inMinutes < 60) return "منذ ${diff.inMinutes} ${loc.translate('minute_ago') ?? 'دقيقة'}";
+    if (diff.inHours < 24) return "منذ ${diff.inHours} ساعة";
     return "${time.day}/${time.month}";
   }
 }

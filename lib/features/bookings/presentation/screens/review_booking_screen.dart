@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:darb/features/bookings/data/models/passenger_model.dart';
 import 'package:darb/features/bookings/presentation/providers/booking_provider.dart';
+// ✅ تم استيراد شاشة تأكيد استلام الطلب
 import 'package:darb/features/bookings/presentation/screens/request_received_screen.dart';
 import 'package:darb/core/localization/app_localizations.dart';
 import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
@@ -31,8 +32,8 @@ class ReviewBookingScreen extends StatelessWidget {
     required this.paymentMethod,
   });
 
+  // ✅ الدالة المحدثة التي تنقل المستخدم لشاشة "تم الطلب بنجاح"
   Future<void> _submitFinalBooking(BuildContext context, BookingProvider provider, AppLocalizations loc) async {
-    // ✅ التأكد من رفع السند قبل الإرسال النهائي
     if (paymentMethod == "سند" && provider.receiptImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى إرفاق صورة السند لاعتماد الحجز النهائي')));
       return;
@@ -47,15 +48,20 @@ class ReviewBookingScreen extends StatelessWidget {
     if (!context.mounted) return;
 
     if (bookingId != null) {
+      // ✅ الانتقال لشاشة "تم الطلب بنجاح" وتفريغ المكدس للرئيسية
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => RequestReceivedScreen(
-          bookingData: BookingSuccessData(bookingId: bookingId, ticketCount: ticketCount, totalAmount: ticketCount * unitPrice),
+          bookingData: BookingSuccessData(
+            bookingId: bookingId, 
+            ticketCount: ticketCount, 
+            totalAmount: ticketCount * unitPrice
+          ),
         )),
         (route) => route.isFirst,
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.translate('error_try_again_later'))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.translate('error_try_again_later') ?? 'حدث خطأ')));
     }
   }
 
@@ -124,10 +130,9 @@ class ReviewBookingScreen extends StatelessWidget {
               _buildInfoCard(cardColor, [
                 _buildRowItem('طريقة الدفع', paymentMethod, textColor),
                 const Divider(),
-                _buildRowItem('إجمالي المبلغ', "$totalAmount ${loc.translate('riyals')}", textColor, isBold: true, valueColor: primaryColor),
+                _buildRowItem('إجمالي المبلغ', "$totalAmount ${loc.translate('riyals') ?? 'ريال'}", textColor, isBold: true, valueColor: primaryColor),
                 const Divider(),
                 
-                // ✅ قسم رفع صورة السند
                 if (paymentMethod == "سند") ...[
                   const SizedBox(height: 10),
                   const Text('الرجاء إرفاق صورة حوالة الإيداع لاعتماد الحجز:', style: TextStyle(color: Colors.grey, fontSize: 13)),

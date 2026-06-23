@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // ✅ تم استيراد مكتبة الـ Formatters
 import 'package:provider/provider.dart';
 import 'package:darb/features/bookings/data/models/passenger_model.dart';
 import 'package:darb/features/bookings/presentation/providers/booking_provider.dart';
@@ -51,9 +52,11 @@ class _ReservationScreenState extends State<ReservationScreen> {
     _formKey.currentState!.save();
 
     if (_paymentMethod == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.translate('please_select_payment_method'))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.translate('please_select_payment_method') ?? 'يرجى اختيار طريقة الدفع')));
       return;
     }
+
+    List<PassengerModel> finalPassengers = passengers;
 
     Navigator.push(
       context,
@@ -61,11 +64,11 @@ class _ReservationScreenState extends State<ReservationScreen> {
         builder: (context) => ReviewBookingScreen(
           ticketCount: widget.ticketCount,
           unitPrice: widget.unitPrice,
-          route: widget.route,
           tripRouteId: widget.tripRouteId,
+          passengers: finalPassengers,
+          route: widget.route,
           companyName: widget.companyName,
           departureTime: widget.departureTime,
-          passengers: passengers,
           paymentMethod: _paymentMethod!,
         ),
       ),
@@ -98,11 +101,17 @@ class _ReservationScreenState extends State<ReservationScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   children: [
                     const SizedBox(height: 25),
-                    _buildSectionTitle(loc.translate('passengers_data'), textColor),
+                    _buildSectionTitle(loc.translate('passengers_data') ?? 'بيانات الركاب', textColor),
                     ...List.generate(widget.ticketCount, (index) => _buildPassengerCard(index, loc, isAr, cardColor, inputBgColor, textColor)),
                     const SizedBox(height: 25),
-                    _buildSectionTitle(loc.translate('payment_method'), textColor),
+                    _buildSectionTitle(loc.translate('payment_method') ?? 'طريقة الدفع', textColor),
                     _buildPaymentMethodSelector(loc, textColor),
+                    
+                    if (_paymentMethod == "سند") ...[
+                      const SizedBox(height: 15),
+                      _buildBankAccountsList(context, textColor, cardColor),
+                    ],
+                    
                     const SizedBox(height: 50),
                   ],
                 ),
@@ -121,7 +130,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
       child: Row(
         children: [
           IconButton(onPressed: () => Navigator.pop(context), icon: Icon(isAr ? Icons.arrow_back_ios : Icons.arrow_forward_ios, color: Colors.white)),
-          Text(loc.translate('confirm_trip_booking'), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(loc.translate('confirm_trip_booking') ?? 'تأكيد الحجز', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -135,28 +144,32 @@ class _ReservationScreenState extends State<ReservationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-           Text("${loc.translate('passenger_data_singular')} ${index + 1}", style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+           Text("${loc.translate('passenger_data_singular') ?? 'بيانات الراكب'} ${index + 1}", style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
            const SizedBox(height: 15),
-           _buildField(loc.translate('full_name'), Icons.person, (v) => passengers[index].fullName = v ?? "", inputBgColor, isAr),
+           _buildField(loc.translate('full_name') ?? 'الاسم الرباعي', Icons.person, (v) => passengers[index].fullName = v ?? "", inputBgColor, isAr),
            const SizedBox(height: 10),
-           // ✅ تم تحديد الحد الأقصى للهوية بـ 11 رقم
            _buildField("رقم الهوية / الجواز", Icons.badge, (v) => passengers[index].nationalId = v ?? "", inputBgColor, isAr, isNumber: true, maxLength: 11),
            const SizedBox(height: 10),
-           _buildField("رقم الجوال", Icons.phone, (v) => passengers[index].phoneNumber = v ?? "", inputBgColor, isAr, isNumber: true),
+           // ✅ تم تمرير isPhone: true لتطبيق قيود رقم الهاتف هنا
+           _buildField("رقم الجوال", Icons.phone, (v) => passengers[index].phoneNumber = v ?? "", inputBgColor, isAr, isPhone: true, maxLength: 9),
         ],
       ),
     );
   }
 
-  // ✅ تم إضافة خصائص maxLength و counterText لإخفاء العداد
-  Widget _buildField(String hint, IconData icon, Function(String?) onSaved, Color inputBgColor, bool isAr, {bool isNumber = false, int? maxLength}) {
+  // ✅ تم دمج شروط رقم الهاتف (9 أرقام ومنع الحروف) في هذه الدالة للحفاظ على شكل التصميم
+  Widget _buildField(String hint, IconData icon, Function(String?) onSaved, Color inputBgColor, bool isAr, {bool isNumber = false, int? maxLength, bool isPhone = false}) {
     return TextFormField(
       onSaved: onSaved,
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      keyboardType: isPhone ? TextInputType.phone : (isNumber ? TextInputType.number : TextInputType.text),
       maxLength: maxLength,
+      // ✅ يمنع إدخال أي حروف، أرقام فقط (للهاتف والهوية)
+      inputFormatters: (isPhone || isNumber) ? [FilteringTextInputFormatter.digitsOnly] : [],
       validator: (value) {
         if (value == null || value.trim().isEmpty) return 'هذا الحقل مطلوب لإتمام الحجز';
-        if (maxLength != null && value.length != maxLength) return 'يجب أن يتكون من $maxLength رقماً';
+        // ✅ رسالة خطأ مخصصة إذا كان رقم الهاتف لا يساوي 9
+        if (isPhone && value.trim().length != 9) return 'يجب أن يتكون رقم الهاتف من 9 أرقام';
+        if (maxLength != null && value.trim().length != maxLength && !isPhone) return 'يجب أن يتكون من $maxLength رقماً';
         return null;
       },
       decoration: InputDecoration(
@@ -164,7 +177,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
         prefixIcon: Icon(icon, color: Colors.grey),
         filled: true, 
         fillColor: inputBgColor, 
-        counterText: "", // ✅ إخفاء العداد الرقمي المزعج
+        counterText: "", // ✅ إخفاء العداد
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)
       ),
     );
@@ -189,19 +202,55 @@ class _ReservationScreenState extends State<ReservationScreen> {
   
   Widget _buildSectionTitle(String t, Color textColor) => Text(t, style: TextStyle(fontWeight: FontWeight.bold, color: textColor));
   
-  Widget _buildPaymentMethodSelector(AppLocalizations loc, Color textColor) =>RadioGroup<String>(
-  groupValue: _paymentMethod, // نقلناها هنا للأب
-  onChanged: (v) => setState(() => _paymentMethod = v), // نقلناها هنا للأب
-  child: Row( // أو Column حسب تصميم صفحتك
-    children: [
-      Radio<String>(
-        value: 'cash',
-        activeColor: primaryColor,
-      ),
-      Radio<String>(
-        value: 'card',
-        activeColor: primaryColor,
-      ),
-    ],
-  ),
-);}
+  Widget _buildPaymentMethodSelector(AppLocalizations loc, Color textColor) => RadioListTile<String>(
+    title: Text(loc.translate('bank_transfer_deposit') ?? 'تحويل بنكي / إيداع مباشر', style: TextStyle(color: textColor)), 
+    value: "سند", 
+    groupValue: _paymentMethod, 
+    activeColor: primaryColor,
+    onChanged: (v) => setState(() => _paymentMethod = v)
+  );
+
+  Widget _buildBankAccountsList(BuildContext context, Color textColor, Color cardColor) {
+    return Consumer<BookingProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
+          return const Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Center(child: CircularProgressIndicator(color: Color(0xFFE79C24))),
+          );
+        }
+
+        if (provider.bankAccounts.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Text("لا توجد حسابات بنكية متوفرة لهذه الشركة حالياً", style: TextStyle(color: Colors.red[400], fontSize: 12)),
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(15), border: Border.all(color: primaryColor.withValues(alpha: 0.3))),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("يرجى إيداع المبلغ في أحد الحسابات التالية:", style: TextStyle(fontWeight: FontWeight.bold, color: textColor, fontSize: 13)),
+              const SizedBox(height: 10),
+              ...provider.bankAccounts.map((bank) => Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.account_balance, color: Colors.grey, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text("${bank.bankName} - ${bank.accountNumber}", style: TextStyle(color: textColor, fontSize: 12)),
+                    ),
+                  ],
+                ),
+              )),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}

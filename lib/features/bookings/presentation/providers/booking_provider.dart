@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:darb/features/bookings/data/models/passenger_model.dart';
 import 'package:darb/features/bookings/data/models/booking_service.dart';
+import 'package:darb/features/bookings/data/models/bank_account_model.dart';
 
 class BookingProvider with ChangeNotifier {
   final BookingService _service = BookingService();
@@ -10,9 +11,8 @@ class BookingProvider with ChangeNotifier {
   List<dynamic> bookings = [];
   bool isLoading = false;
   bool isSubmitting = false;
-  File? receiptImage; // هذا المتغير الذي كانت تنقصك الدالة لتحديثه
+  File? receiptImage; 
 
-  // تحديث صورة السند (هذه الدالة التي كانت تظهر كخطأ)
   void updateReceiptImage(File? image) {
     receiptImage = image;
     notifyListeners();
@@ -27,6 +27,7 @@ class BookingProvider with ChangeNotifier {
   Future<int?> submitBooking({required int tripRouteId, required List<PassengerModel> passengers, required File receipt}) async {
     isSubmitting = true; notifyListeners();
     List<Map<String, dynamic>> passengerList = passengers.map((p) => p.toJson()).toList();
+    
     int? bookingId = await _service.createBookingStage1(tripRouteId: tripRouteId, passengers: passengerList);
     
     if (bookingId != null) {
@@ -34,6 +35,7 @@ class BookingProvider with ChangeNotifier {
       isSubmitting = false; notifyListeners();
       return uploaded ? bookingId : null;
     }
+    
     isSubmitting = false; notifyListeners();
     return null;
   }

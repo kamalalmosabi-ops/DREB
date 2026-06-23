@@ -2,17 +2,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'search_results.dart';
 import 'package:darb/features/notifications/presentation/screens/notifications_screen.dart';
+import 'package:darb/features/notifications/presentation/providers/notification_provider.dart';
 import 'companies_screen.dart';
-import 'all_trips_screen.dart';
 import 'package:darb/features/home_search/presentation/providers/home_provider.dart';
 import 'package:darb/core/network/dio_client.dart';
 import 'package:darb/core/localization/app_localizations.dart';
 import 'package:darb/features/settings/presentation/providers/settings_provider.dart';
-
-// ✅ ضروري لإتاحة النقر على الشركة والانتقال لتفاصيلها
 import 'package:darb/features/home_search/data/models/company_model.dart';
 import 'company_details_screen.dart';
 
@@ -24,7 +23,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String userName = "يا صديقي";
+  String userName = "جاري التحميل...";
   String userToken = "";
   List<dynamic> companyAvatars = [];
   bool isExtraLoading = true;
@@ -40,6 +39,14 @@ class _HomeScreenState extends State<HomeScreen> {
         _startAdTimer();
       });
       _loadExtraDynamicData();
+      
+      context.read<NotificationProvider>().fetchNotificationsSilently();
+    });
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      if (mounted) {
+        context.read<NotificationProvider>().fetchNotificationsSilently();
+      }
     });
   }
 
@@ -51,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startAdTimer() {
-    final ads = Provider.of<HomeProvider>(context, listen: false).searchData?.ads ?? [];
+    final ads = Provider.of<HomeProvider>(context, listen: false).ads;
     if (ads.length > 1) {
       _adTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
         if (_adController.hasClients) {
@@ -74,7 +81,11 @@ class _HomeScreenState extends State<HomeScreen> {
       String? email = prefs.getString('email');
       
       if (savedName == null && email != null) savedName = email.split('@').first;
-      if (savedName != null && savedName.isNotEmpty) setState(() => userName = savedName!);
+      if (savedName != null && savedName.isNotEmpty) {
+        if(mounted) setState(() => userName = savedName!);
+      } else {
+        if(mounted) setState(() => userName = "مرحباً بك");
+      }
 
       userToken = prefs.getString('token') ?? prefs.getString('accessToken') ?? '';
       
@@ -97,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _selectDate(BuildContext context, HomeProvider provider) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: provider.selectedDate,
+      initialDate: provider.selectedDate ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2030),
       builder: (context, child) => Theme(
@@ -105,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: child!,
       ),
     );
-    if (picked != null && picked != provider.selectedDate) {
+    if (picked != null) {
       provider.updateSelectedDate(picked);
     }
   }
@@ -125,10 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: bgColor,
         body: Consumer<HomeProvider>(
           builder: (context, homeProvider, child) {
-            final governorates = homeProvider.searchData?.governorates ?? [];
-            final companiesList = homeProvider.searchData?.companies ?? [];
-            final times = homeProvider.searchData?.periods ?? [];
-            final ads = homeProvider.searchData?.ads ?? [];
+            final ads = homeProvider.ads;
 
             return Stack(
               children: [
@@ -136,10 +144,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   physics: const BouncingScrollPhysics(),
                   child: Column(
                     children: [
-                      _buildUpperSection(homeProvider, governorates, companiesList, times, isDark, isAr, loc),
+                      _buildUpperSection(homeProvider, isDark, isAr, loc),
                       const SizedBox(height: 25),
 
-                      // ✅ عرض السلايدر في حال وجود إعلانات، أو عرض البديل (المساحة الإعلانية)
                       if (ads.isNotEmpty) ...[
                         _buildAdsCarousel(ads, isDark),
                         const SizedBox(height: 25),
@@ -224,7 +231,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ✅ المساحة الإعلانية البديلة (تظهر في حال عدم وجود إعلانات من السيرفر)
   Widget _buildNoAdsPlaceholder(bool isDark) {
     return Container(
       height: 140,
@@ -249,7 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildUpperSection(HomeProvider provider, List<String> governorates, List<String> companies, List<String> times, bool isDark, bool isAr, AppLocalizations loc) {
+  Widget _buildUpperSection(HomeProvider provider, bool isDark, bool isAr, AppLocalizations loc) {
     return Stack(
       children: [
         Container(
@@ -262,9 +268,9 @@ class _HomeScreenState extends State<HomeScreen> {
         SafeArea(
           child: Column(
             children: [
-              _buildHeader(loc),
+              _buildHeader(),
               const SizedBox(height: 10),
-              _buildSearchCard(provider, governorates, companies, times, isDark, isAr, loc),
+              _buildSearchCard(provider, isDark, isAr, loc),
             ],
           ),
         ),
@@ -272,40 +278,80 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHeader(AppLocalizations loc) {
+  Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              const CircleAvatar(radius: 22, backgroundColor: Color(0xFF0D1B3E), child: Icon(Icons.person, color: Colors.white)),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("أهلاً بك، $userName 👋", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                  const Text('إلى أين وجهتك اليوم؟', style: TextStyle(fontSize: 12, color: Colors.white70)),
-                ],
-              ),
-            ],
-          ),
-          Container(
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
-            child: IconButton(
-              icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => NotificationsScreen(userType: "passenger", token: userToken))),
+          // ✅ التعديل هنا: إضافة Expanded لمنع تجاوز الحجم (Overflow) عند طول الاسم
+          Expanded(
+            child: Row(
+              children: [
+                const CircleAvatar(radius: 22, backgroundColor: Color(0xFF0D1B3E), child: Icon(Icons.person, color: Colors.white)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        "أهلاً بك، $userName 👋", 
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                        maxLines: 1, // منع النص من النزول لسطر جديد
+                        overflow: TextOverflow.ellipsis, // وضع (...) إذا كان الاسم طويلاً جداً
+                      ),
+                      const Text(
+                        'إلى أين وجهتك اليوم؟', 
+                        style: TextStyle(fontSize: 12, color: Colors.white70),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
+          ),
+          const SizedBox(width: 10), // مسافة أمان قبل أيقونة الإشعارات
+          Consumer<NotificationProvider>(
+            builder: (context, notiProvider, child) {
+              int unread = notiProvider.unreadCount;
+              return Container(
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
+                child: IconButton(
+                  icon: Badge(
+                    isLabelVisible: unread > 0, 
+                    label: Text('$unread', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    backgroundColor: Colors.red,
+                    offset: const Offset(-5, -5),
+                    child: const Icon(Icons.notifications_none_rounded, color: Colors.white),
+                  ),
+                  onPressed: () async {
+                    await Navigator.push(
+                      context, 
+                      MaterialPageRoute(builder: (_) => const NotificationsScreen(userType: "passenger"))
+                    );
+                    if (context.mounted) {
+                      context.read<NotificationProvider>().fetchNotificationsSilently();
+                    }
+                  },
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSearchCard(HomeProvider provider, List<String> governorates, List<String> companies, List<String> times, bool isDark, bool isAr, AppLocalizations loc) {
+  Widget _buildSearchCard(HomeProvider provider, bool isDark, bool isAr, AppLocalizations loc) {
     final cardColor = isDark ? const Color(0xFF2C2C2E) : Colors.white;
     final shadowColor = isDark ? Colors.black.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.08);
+
+    final governorates = provider.searchData?.governorates ?? [];
+    final companies = provider.searchData?.companies ?? [];
+    final times = provider.searchData?.periods ?? [];
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 25),
@@ -313,34 +359,82 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: shadowColor, blurRadius: 30, offset: const Offset(0, 15))]),
       child: Column(
         children: [
-          _buildDropdownField(Icons.location_on, 'من محافظة', provider.selectedFrom, governorates, (val) => provider.updateSelectedFrom(val), isDark, isAr),
+          _buildDropdownField(Icons.location_on, loc.translate('from_governorate') ?? 'من محافظة', provider.selectedFrom, governorates, (val) => provider.updateSelectedFrom(val), isDark, isAr),
           const SizedBox(height: 12),
-          _buildDropdownField(Icons.navigation, 'إلى محافظة', provider.selectedTo, governorates, (val) => provider.updateSelectedTo(val), isDark, isAr),
+          _buildDropdownField(Icons.navigation, loc.translate('to_governorate') ?? 'إلى محافظة', provider.selectedTo, governorates, (val) => provider.updateSelectedTo(val), isDark, isAr),
           const SizedBox(height: 12),
-          _buildDropdownField(Icons.business_rounded, 'شركة النقل', provider.selectedCompany, companies, (val) => provider.updateSelectedCompany(val), isDark, isAr),
+          _buildDropdownField(Icons.business_rounded, loc.translate('transport_company') ?? 'شركة النقل', provider.selectedCompany, companies, (val) => provider.updateSelectedCompany(val), isDark, isAr),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _buildDropdownField(Icons.access_time, 'الفترة', provider.selectedTime, times, (val) => provider.updateSelectedTime(val), isDark, isAr)),
+              Expanded(child: _buildDropdownField(Icons.access_time, loc.translate('period') ?? 'الفترة', provider.selectedTime, times, (val) => provider.updateSelectedTime(val), isDark, isAr)),
               const SizedBox(width: 10),
-              Expanded(child: InkWell(onTap: () => _selectDate(context, provider), child: _buildSearchField(Icons.calendar_today, 'التاريخ', "${provider.selectedDate.day} / ${provider.selectedDate.month}", isDark, isAr))),
+              Expanded(
+                child: InkWell(
+                  onTap: () => _selectDate(context, provider),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    decoration: BoxDecoration(color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFF9FAFB), borderRadius: BorderRadius.circular(12), border: Border.all(color: isDark ? Colors.transparent : const Color(0xFFF3F4F6))),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today, color: Color(0xFFE79C24), size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(loc.translate('date') ?? 'التاريخ', style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : const Color(0xFF6B7280))),
+                              Text(
+                                provider.selectedDate != null ? "${provider.selectedDate!.year}/${provider.selectedDate!.month}/${provider.selectedDate!.day}" : "الكل", 
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF0D1B3E)),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (provider.selectedDate != null)
+                          GestureDetector(
+                            onTap: () => provider.updateSelectedDate(null),
+                            child: const Icon(Icons.close, size: 18, color: Colors.redAccent),
+                          )
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity, height: 55,
             child: ElevatedButton(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchResultsScreen(
-                fromCity: provider.selectedFrom ?? '', toCity: provider.selectedTo ?? '', company: provider.selectedCompany ?? '', travelDate: provider.selectedDate, timePeriod: provider.selectedTime ?? '', fromCityId: provider.selectedFromId, toCityId: provider.selectedToId, companyId: provider.selectedCompanyId, periodId: provider.selectedPeriodId,
-              ))),
+              onPressed: () {
+                String actualFrom = provider.selectedFrom ?? '';
+                String actualTo = provider.selectedTo ?? '';
+                String actualComp = provider.selectedCompany ?? '';
+                String actualTime = provider.selectedTime ?? '';
+
+                int finalFromId = actualFrom.isEmpty ? 0 : (provider.selectedFromId ?? 0);
+                int finalToId = actualTo.isEmpty ? 0 : (provider.selectedToId ?? 0);
+                int finalCompanyId = actualComp.isEmpty ? 0 : (provider.selectedCompanyId ?? 0);
+                int finalPeriodId = actualTime.isEmpty ? 0 : (provider.selectedPeriodId ?? 0);
+
+                Navigator.push(context, MaterialPageRoute(builder: (_) => SearchResultsScreen(
+                  fromCity: actualFrom.isEmpty ? "الكل" : actualFrom, 
+                  toCity: actualTo.isEmpty ? "الكل" : actualTo, 
+                  company: actualComp.isEmpty ? "الكل" : actualComp, 
+                  travelDate: provider.selectedDate, 
+                  timePeriod: actualTime.isEmpty ? "الكل" : actualTime, 
+                  fromCityId: finalFromId,      
+                  toCityId: finalToId,          
+                  companyId: finalCompanyId,    
+                  periodId: finalPeriodId,      
+                )));
+              },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE79C24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)), elevation: 0),
-              child: const Text('ابحث عن الرحلات', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+              child: Text(loc.translate('search_trips') ?? 'ابحث عن الرحلات', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
             ),
-          ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllTripsScreen())),
-            child: const Text('استكشف جميع الرحلات', style: TextStyle(color: Color(0xFFE79C24), fontSize: 14, fontWeight: FontWeight.bold, decoration: TextDecoration.underline, decorationColor: Color(0xFFE79C24))),
           ),
         ],
       ),
@@ -348,7 +442,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildDropdownField(IconData icon, String label, String? currentValue, List<String> items, Function(String?) onChanged, bool isDark, bool isAr) {
-    final String? verifiedValue = items.contains(currentValue) ? currentValue : (items.isNotEmpty ? items.first : null);
+    final String? verifiedValue = items.contains(currentValue) ? currentValue : null;
     final fieldBgColor = isDark ? const Color(0xFF3A3A3C) : const Color(0xFFF9FAFB);
     final borderColor = isDark ? Colors.transparent : const Color(0xFFF3F4F6);
     final textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
@@ -365,13 +459,29 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Directionality(
               textDirection: TextDirection.rtl,
               child: DropdownButtonHideUnderline(
-                child: DropdownButtonFormField<String>(
-                  initialValue: verifiedValue,
+                child: DropdownButtonFormField<String?>(
+                  value: verifiedValue,
                   icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF9CA3AF), size: 18),
                   isExpanded: true,
                   dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
-                  decoration: InputDecoration(labelText: label, labelStyle: TextStyle(fontSize: 11, color: labelColor, fontWeight: FontWeight.w500), border: InputBorder.none, alignLabelWithHint: true),
-                  items: items.map((String value) => DropdownMenuItem(value: value, alignment: Alignment.centerRight, child: Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor), overflow: TextOverflow.ellipsis))).toList(),
+                  decoration: InputDecoration(
+                    labelText: label, 
+                    labelStyle: TextStyle(fontSize: 11, color: labelColor, fontWeight: FontWeight.w500), 
+                    border: InputBorder.none, 
+                    alignLabelWithHint: true
+                  ),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      alignment: Alignment.centerRight,
+                      child: Text("الكل (بدون فلتر)", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade500)),
+                    ),
+                    ...items.map((String value) => DropdownMenuItem<String?>(
+                      value: value, 
+                      alignment: Alignment.centerRight, 
+                      child: Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor), overflow: TextOverflow.ellipsis)
+                    )),
+                  ],
                   onChanged: onChanged,
                 ),
               ),
@@ -382,36 +492,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSearchField(IconData icon, String label, String value, bool isDark, bool isAr) {
-    final fieldBgColor = isDark ? const Color(0xFF3A3A3C) : const Color(0xFFF9FAFB);
-    final borderColor = isDark ? Colors.transparent : const Color(0xFFF3F4F6);
-    final textColor = isDark ? Colors.white : const Color(0xFF0D1B3E);
-    final labelColor = isDark ? Colors.grey[400] : const Color(0xFF6B7280);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(color: fieldBgColor, borderRadius: BorderRadius.circular(12), border: Border.all(color: borderColor)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          Icon(icon, color: const Color(0xFFE79C24), size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(label, style: TextStyle(fontSize: 11, color: labelColor)),
-                Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ✅ الشركات في الهوم أصبحت قابلة للنقر وتنقلك لتفاصيل الشركة
   Widget _buildCompaniesList(bool isDark) {
     if (isExtraLoading) return const Center(child: CircularProgressIndicator(color: Color(0xFFE79C24)));
     if (companyAvatars.isEmpty) return const SizedBox();
@@ -433,7 +513,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
           return GestureDetector(
             onTap: () {
-              // توجيه العميل إلى تفاصيل الشركة عند الضغط
               final companyObj = Company(
                 id: comp['companyId'] ?? comp['id'] ?? 0,
                 name: name,

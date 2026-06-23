@@ -2,7 +2,8 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:darb/core/network/dio_client.dart'; 
-import '../models/passenger_model.dart';
+import 'passenger_model.dart';
+import 'bank_account_model.dart'; // تأكد من استيراد مودل البنك الصحيح
 
 class BookingService {
   final DioClient _dioClient = DioClient();
@@ -11,7 +12,6 @@ class BookingService {
     try {
       final response = await _dioClient.get('/Customer/bank/accounts/$companyId');
       
-      // فحص آمن: السيرفر يعيد {"success": true, "data": [...]}
       if (response.statusCode == 200 && response.data is Map) {
         if (response.data['data'] != null && response.data['data'] is List) {
           List<dynamic> dataList = response.data['data'];
@@ -36,12 +36,9 @@ class BookingService {
         if (response.data is Map) {
           final data = response.data;
           
-          // ✅ التعديل الجذري لحل الكراش: قراءة الرقم مباشرة إذا كان السيرفر يرسله كعدد صحيح (مثل "data": 3)
           if (data['data'] is int) {
             return data['data']; 
-          } 
-          // احتياطاً لو أرسله السيرفر مستقبلاً داخل ماب
-          else if (data['data'] is Map) {
+          } else if (data['data'] is Map) {
             return data['data']['bookingId'] ?? data['data']['id'];
           }
           

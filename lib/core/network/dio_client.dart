@@ -21,8 +21,8 @@ class DioClient {
       : _dio = Dio(
           BaseOptions(
             baseUrl: baseUrl,
-            connectTimeout: const Duration(seconds: 15),
-            receiveTimeout: const Duration(seconds: 13),
+            connectTimeout: const Duration(seconds: 60),
+            receiveTimeout: const Duration(seconds: 60),
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
@@ -64,7 +64,16 @@ class DioClient {
     }
   }
 
-  // 3. نظام معالجة الأخطاء الذكي
+  // 3. دالة تحديث/تعديل البيانات الموحدة (PUT Request) ✅ تم الإضافة هنا
+  Future<Response> put(String path, {dynamic data, Map<String, dynamic>? queryParameters, Options? options}) async {
+    try {
+      return await _dio.put(path, data: data, queryParameters: queryParameters, options: options);
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  // 4. نظام معالجة الأخطاء الذكي
   String _handleDioError(DioException error) {
     switch (error.type) {
       case DioExceptionType.connectionTimeout:

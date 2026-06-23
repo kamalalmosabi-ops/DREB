@@ -37,20 +37,3 @@ class BookingRequestModel {
     };
   }
 }
-
-// موديل لجلب الحسابات البنكية الخاصة بالشركة ديناميكياً
-class BankAccountModel {
-  final int id;
-  final String bankName;
-  final String accountNumber;
-
-  BankAccountModel({required this.id, required this.bankName, required this.accountNumber});
-
-  factory BankAccountModel.fromJson(Map<String, dynamic> json) {
-    return BankAccountModel(
-      id: json['id'] ?? 0,
-      bankName: json['bankName'] ?? 'غير معروف',
-      accountNumber: json['accountNumber'] ?? '',
-    );
-  }
-}

@@ -43,7 +43,7 @@ class _CompaniesScreenState extends State<CompaniesScreen> {
         backgroundColor: bgColor,
         body: Column(
           children: [
-            _buildStandardHeader(context, primaryColor, loc, isAr), // ✅ تم تمرير اتجاه اللغة للفحص
+            _buildStandardHeader(context, primaryColor, loc, isAr), 
             Expanded(
               child: Consumer<CompanyProvider>(
                 builder: (context, provider, child) {
@@ -58,7 +58,7 @@ class _CompaniesScreenState extends State<CompaniesScreen> {
                         children: [
                           Icon(Icons.business_rounded, size: 60, color: textColor.withValues(alpha: 0.3)),
                           const SizedBox(height: 10),
-                          Text(loc.translate('no_companies_available'), style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold)),
+                          Text(loc.translate('no_companies_available') ?? 'لا توجد شركات متاحة حالياً', style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold)),
                         ],
                       ),
                     );
@@ -83,13 +83,11 @@ class _CompaniesScreenState extends State<CompaniesScreen> {
     );
   }
 
-  // ✅ تعديل الهيدر ليفحص إمكانية الرجوع ويظهر السهم فقط عند الدخول من الصفحة الرئيسية
   Widget _buildStandardHeader(BuildContext context, Color primaryColor, AppLocalizations loc, bool isAr) {
-    // التحقق التلقائي: هل الشاشة مفتوحة فوق شاشة أخرى ويمكن الرجوع؟
     final bool canPop = ModalRoute.of(context)?.canPop ?? false;
 
     return Container(
-      height: 135, // تم تعديل الارتفاع قليلاً ليعطي مساحة مريحة للـ Stack والـ SafeArea
+      height: 135, 
       width: double.infinity,
       decoration: BoxDecoration( 
         color: primaryColor,
@@ -99,7 +97,6 @@ class _CompaniesScreenState extends State<CompaniesScreen> {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // يظهر زر السهم فقط إذا جاء المستخدم من شاشة "عرض المزيد" في الصفحة الرئيسية
             if (canPop)
               Positioned(
                 right: isAr ? 15 : null,
@@ -111,18 +108,17 @@ class _CompaniesScreenState extends State<CompaniesScreen> {
                     size: 22,
                   ),
                   onPressed: () {
-                    Navigator.pop(context); // العودة الآمنة للصفحة الرئيسية
+                    Navigator.pop(context); 
                   },
                 ),
               ),
-            // نصوص الهيدر تظل متمردة ومستقرة في المنتصف دائماً
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(loc.translate('transport_companies'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text(loc.translate('transport_companies') ?? 'شركات النقل', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
-                  Text(loc.translate('choose_travel_partner'), style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12)),
+                  Text(loc.translate('choose_travel_partner') ?? 'اختر شريك سفرك المفضل', style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12)),
                 ],
               ),
             ),
@@ -149,18 +145,10 @@ class _CompaniesScreenState extends State<CompaniesScreen> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 const SizedBox(height: 35),
+                // ✅ عرض الاسم فقط
                 Text(company.name, style: TextStyle(color: textColor, fontWeight: FontWeight.w900, fontSize: 16), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
-                    Text(" ${company.rating}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textColor)),
-                    const SizedBox(width: 8),
-                    Text("| ${company.totalTrips} ${loc.translate('trip_word')}", style: TextStyle(color: Colors.grey.withValues(alpha: 0.8), fontSize: 11)),
-                  ],
-                ),
-                const SizedBox(height: 15),
+                // ✅ تم إزالة التقييم وعدد الرحلات من هنا وضبط المسافة
+                const SizedBox(height: 20),
                 GestureDetector(
                   onTap: () {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => CompanyDetailsScreen(company: company)));
@@ -168,7 +156,7 @@ class _CompaniesScreenState extends State<CompaniesScreen> {
                   child: Container(
                     width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(color: primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(15)),
-                    child: Center(child: Text(loc.translate('explore'), style: TextStyle(color: primary, fontSize: 12, fontWeight: FontWeight.bold))),
+                    child: Center(child: Text(loc.translate('explore') ?? 'عرض التفاصيل', style: TextStyle(color: primary, fontSize: 12, fontWeight: FontWeight.bold))),
                   ),
                 ),
               ],
